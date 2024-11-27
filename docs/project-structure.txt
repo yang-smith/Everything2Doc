@@ -1,0 +1,44 @@
+
+
+Everything2Doc/
+├── src/
+│   ├── everything2doc/
+│   │   ├── __init__.py
+│   │   ├── preprocessing/
+│   │   │   ├── __init__.py
+│   │   │   ├── segmenter.py        # Chat log segmentation
+│   │   │   └── cleaner.py          # Data cleaning utilities
+│   │   ├── ai/
+│   │   │   ├── __init__.py
+│   │   │   ├── client.py           # AI API client
+│   │   │   ├── outline_generator.py # Document outline generation
+│   │   │   └── extractor.py        # Information extraction
+│   │   ├── document/
+│   │   │   ├── __init__.py
+│   │   │   ├── compiler.py         # Final document compilation
+│   │   │   └── formatter.py        # Document formatting
+│   │   └── utils/
+│   │       ├── __init__.py
+│   │       ├── config.py           # Configuration management
+│   │       └── logger.py           # Logging setup
+├── tests/
+│   ├── conftest.py                 # Shared test fixtures
+│   ├── test_preprocessing/
+│   │   ├── test_segmenter.py
+│   │   └── test_cleaner.py
+│   ├── test_ai/
+│   │   ├── test_client.py
+│   │   ├── test_outline_generator.py
+│   │   └── test_extractor.py
+│   └── test_document/
+│       ├── test_compiler.py
+│       └── test_formatter.py
+├── docs/
+│   ├── api/
+│   └── usage/
+├── examples/
+├── requirements.txt
+├── .gitignore
+├── README.md
+├── setup.py
+└── pytest.ini
