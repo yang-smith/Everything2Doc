@@ -1,5 +1,5 @@
-from utils.ai_chat_client import ai_chat
-from memory_manager import ConversationManager
+from .ai_chat_client import ai_chat
+from .memory_manager import ConversationManager
 
 
 

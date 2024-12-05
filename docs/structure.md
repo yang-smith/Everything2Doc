@@ -3,7 +3,6 @@
 - **前端（Next.js）**：
   - **职责**：提供用户界面，处理用户交互，进行文件上传，与后端 API 交互，展示 AI 对话界面和文档预览等。
   - **技术选型**：
-    - 使用 React Hooks 和 Context 进行状态管理。
     - 使用 Tailwind CSS、Material-UI、Shadcn UI、Radix UI 等组件库，加快开发速度。
 
 - **后端（Python）**：
