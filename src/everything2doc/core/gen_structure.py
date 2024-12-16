@@ -20,10 +20,10 @@ def gen_structure(user_input, chat_records, model="anthropic/claude-3.5-sonnet:b
     result = ai_chat(message=combined_input, model=model)
 
     
-    os.makedirs('output', exist_ok=True)
-    with open(structure_file, 'w', encoding='utf-8') as f:
-        f.write(result)
-        f.write('\n')
+    # os.makedirs('output', exist_ok=True)
+    # with open(structure_file, 'w', encoding='utf-8') as f:
+    #     f.write(result)
+    #     f.write('\n')
     
 
     match = re.search(pattern, result, re.DOTALL)

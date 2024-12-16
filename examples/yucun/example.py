@@ -45,11 +45,12 @@ def generate_community_guide(input_file: str, output_file: str = 'output/final_d
         doc_structure, outline = gen_structure(user_input, segments[0], model="anthropic/claude-3.5-sonnet:beta")
     
         # Process segments
-        all_results = process_segments_parallel(segments, outline)
+        all_results = process_segments_parallel(segments[0:8], outline)
 
         # Merge results
         merged_result = merge_chapter_results(all_results)
         print("Merged results:", merged_result)
+        # return 
 
         # Generate final document
         cleaned_document = process_chapters_to_document(merged_result, doc_structure)
@@ -68,5 +69,6 @@ def generate_community_guide(input_file: str, output_file: str = 'output/final_d
 if __name__ == '__main__':
     try:
         generate_community_guide("./examples/ToAnotherCountry/ToAnotherCountry.txt")
+        # generate_community_guide("./examples/yucun/DNyucun.txt")
     except Exception as e:
         print(f"Failed to process file: {str(e)}")
