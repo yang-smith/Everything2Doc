@@ -120,6 +120,7 @@ class ChatSegment(db.Model):
     
     id = db.Column(db.String(36), primary_key=True, default=generate_uuid)
     project_id = db.Column(db.String(36), db.ForeignKey('projects.id'), nullable=False)
+    document_id = db.Column(db.String(36), db.ForeignKey('input_documents.id'), nullable=False)
     segment_index = db.Column(db.Integer, nullable=False)  # 分段序号
     content = db.Column(db.Text)  # 分段内容
     start_time = db.Column(db.DateTime)  # 分段开始时间
@@ -131,6 +132,7 @@ class ChatSegment(db.Model):
         return {
             'id': self.id,
             'project_id': self.project_id,
+            'document_id': self.document_id,
             'segment_index': self.segment_index,
             'start_time': self.start_time.isoformat() if self.start_time else None,
             'end_time': self.end_time.isoformat() if self.end_time else None,
@@ -142,17 +144,40 @@ class Card(db.Model):
     
     id = db.Column(db.String(36), primary_key=True, default=generate_uuid)
     project_id = db.Column(db.String(36), db.ForeignKey('projects.id'), nullable=False)
+    document_id = db.Column(db.String(36), db.ForeignKey('input_documents.id'), nullable=False)
     segment_id = db.Column(db.String(36), db.ForeignKey('chat_segments.id'), nullable=False)
-    content = db.Column(db.Text)
-    timestamp = db.Column(db.DateTime, default=datetime.utcnow)
-    metadata = db.Column(db.JSON)  # 存储额外信息
+    
+    # 核心内容字段
+    summary = db.Column(db.Text)      # 摘要
+    details = db.Column(db.Text)      # 详细内容
+    tags = db.Column(db.JSON)         # 标签列表
+    timestamp = db.Column(db.DateTime) # 事件发生时间
+    
+    # 元数据
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    def to_markdown(self) -> str:
+        """转换为markdown格式"""
+        tags_str = ', '.join(self.tags or [])
+        return f"""<card>
+time: {self.timestamp.strftime('%Y-%m-%d %H:%M:%S')}
+tags: {tags_str}
+summary: {self.summary}
+
+details: {self.details}
+</card>"""
     
     def to_dict(self):
         return {
             'id': self.id,
             'project_id': self.project_id,
-            'type': self.type,
-            'content': self.content,
-            'timestamp': self.timestamp.isoformat(),
-            'metadata': self.metadata
+            'document_id': self.document_id,
+            'segment_id': self.segment_id,
+            'summary': self.summary,
+            'details': self.details,
+            'tags': self.tags,
+            'timestamp': self.timestamp.isoformat() if self.timestamp else None,
+            'created_at': self.created_at.isoformat(),
+            'updated_at': self.updated_at.isoformat()
         }

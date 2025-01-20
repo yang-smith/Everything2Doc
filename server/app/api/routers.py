@@ -2,10 +2,12 @@ from flask import Blueprint, request, jsonify, current_app
 from app.services.project_service import ProjectService
 from app.services.document_service import DocumentService
 from werkzeug.exceptions import BadRequest, NotFound
+from app.services.cards_service import CardsService
 
 bp = Blueprint('api', __name__)
 project_service = ProjectService()
 document_service = DocumentService()
+cards_service = CardsService()
 
 # 项目相关路由
 @bp.route('/projects', methods=['POST'])
@@ -150,6 +152,53 @@ def get_project_output_content(project_id):
         return jsonify({
             'error': 'Internal server error'
         }), 500
+
+# Cards相关路由
+@bp.route('/projects/<project_id>/cards', methods=['GET'])
+def get_project_cards(project_id):
+    """分页获取项目的cards"""
+    try:
+        page = request.args.get('page', 1, type=int)
+        per_page = request.args.get('per_page', 10, type=int)
+        
+        result = cards_service.get_project_cards(
+            project_id=project_id,
+            page=page,
+            per_page=per_page
+        )
+        return jsonify(result)
+        
+    except NotFound:
+        return jsonify({'error': 'Project not found'}), 404
+    except Exception as e:
+        current_app.logger.error(f"Error getting cards: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+@bp.route('/projects/<project_id>/segments/<segment_id>/process', methods=['POST'])
+def process_segment(project_id, segment_id):
+    """处理指定分段"""
+    try:
+        result = cards_service.process_segment(project_id, segment_id)
+        return jsonify(result)
+        
+    except NotFound:
+        return jsonify({'error': 'Segment not found'}), 404
+    except Exception as e:
+        current_app.logger.error(f"Error processing segment: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+@bp.route('/projects/<project_id>/segments', methods=['GET'])
+def get_project_segments(project_id):
+    """获取项目的所有分段信息"""
+    try:
+        segments = cards_service.get_project_segments(project_id)
+        return jsonify(segments)
+        
+    except NotFound:
+        return jsonify({'error': 'Project not found'}), 404
+    except Exception as e:
+        current_app.logger.error(f"Error getting segments: {str(e)}")
+        return jsonify({'error': str(e)}), 500
 
 # 错误处理
 @bp.errorhandler(404)

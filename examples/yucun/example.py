@@ -165,7 +165,8 @@ def generate_cards_test(input_file: str, output_file: str = 'output/final_docume
 
             # Generate cards in parallel
             all_cards = process_segments_to_cards_parallel(segments[0:3],model="deepseek-chat", max_workers=20)
-            
+            print(all_cards)
+            return
             # Combine all cards
             combined_cards = '\n\n'.join(all_cards)
             

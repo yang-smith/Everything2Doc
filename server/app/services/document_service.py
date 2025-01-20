@@ -1,6 +1,7 @@
-from app import db
-from app.models.model import InputDocument, Outline, OutputDocument, Project
+from app import thread_pool, db
+from app.models.model import InputDocument, Outline, OutputDocument, Project, ChatSegment
 from app.utils.file_handler import FileHandler
+from app.services.cards_service import CardsService
 from werkzeug.datastructures import FileStorage
 from werkzeug.exceptions import NotFound
 from typing import Optional, Dict
@@ -13,7 +14,13 @@ from everything2doc import (
     read_file
 )
 import os
-from app.tasks.process_segment import create_segments_task
+from flask import current_app
+from datetime import datetime
+from functools import partial
+from concurrent.futures import Future
+import logging
+
+logger = logging.getLogger(__name__)
 
 class DocumentService:
     def __init__(self):
@@ -22,17 +29,15 @@ class DocumentService:
     def add_document_to_project(self, project_id: str, file) -> InputDocument:
         """添加文档到项目"""
         try:
-            # 检查项目是否存在
+            logger.info(f"Starting to add document to project {project_id}")
+            
             project = Project.query.get(project_id)
             if not project:
                 raise NotFound('Project not found')
-                
-            # 验证文件类型
-            if not self.file_handler.allowed_file(file.filename):
-                raise ValueError("Invalid file type")
             
-            # 保存到输入文件夹
+            # 保存文件    
             file_path, file_size = self.file_handler.save_input_file(file, project_id)
+            logger.info(f"Saved file {file.filename} to {file_path}")
             
             # 创建文档记录
             document = InputDocument(
@@ -40,29 +45,152 @@ class DocumentService:
                 filename=file.filename,
                 file_path=file_path,
                 file_size=file_size,
-                status='uploaded'
+                status='processing'  # 更新初始状态
             )
             
             db.session.add(document)
             db.session.commit()
+            logger.info(f"Created document record with ID: {document.id}")
             
-            # 异步触发分段处理
-            create_segments_task.delay(
+            # 获取应用上下文对象
+            app = current_app._get_current_object()
+            doc_id = document.id  # 保存ID供回调使用
+            
+            # 使用Future跟踪任务执行
+            future = thread_pool.submit(
+                self._process_document,  # 使用新的包装函数
+                app=app,
                 project_id=project_id,
-                document_id=document.id,
-                file_path=document.file_path
+                document_id=doc_id,
+                file_path=file_path
             )
+            
+            # 添加回调处理执行结果
+            def done_callback(fut: Future, doc_id=doc_id):  # 通过默认参数传递ID
+                with app.app_context():
+                    try:
+                        fut.result()  # 这会重新抛出任何异常
+                        document = InputDocument.query.get(doc_id)
+                        if document:
+                            document.status = 'completed'
+                            db.session.commit()
+                            logger.info(f"Document {doc_id} processing completed")
+                    except Exception as e:
+                        document = InputDocument.query.get(doc_id)
+                        if document:
+                            document.status = 'error'
+                            document.error = str(e)
+                            db.session.commit()
+                        logger.error(f"Error processing document {doc_id}: {str(e)}")
+            
+            future.add_done_callback(lambda f: done_callback(f, doc_id))
+            logger.info(f"Submitted document processing task for document {doc_id}")
             
             return document
             
         except Exception as e:
             db.session.rollback()
-            # 如果保存文件后发生错误，清理文件
             if 'file_path' in locals():
                 os.remove(file_path)
-            raise e
+            logger.error(f"Error adding document: {str(e)}")
+            raise
 
+    def _process_document(self, app, project_id: str, document_id: str, file_path: str):
+        """包装函数，确保正确的应用上下文"""
+        with app.app_context():
+            return self._create_segments(project_id, document_id, file_path)
+
+    def _create_segments(self, project_id: str, document_id: str, file_path: str):
+        """创建文档分段"""
+        try:
+            logger.info(f"Starting to create segments for document {document_id}")
             
+            # 读取文件内容
+            chat_text = read_file(file_path)
+            logger.info(f"Read file content, length: {len(chat_text)}")
+            
+            # 分段处理
+            segments = split_chat_records(
+                chat_text,
+                max_messages=1100,
+                min_messages=800,
+                time_gap_minutes=180
+            )
+            
+            if not segments:
+                raise ValueError("No chat segments found")
+            
+            logger.info(f"Created {len(segments)} segments")
+            
+            # 保存分段
+            saved_segments = []
+            for idx, segment_content in enumerate(segments):
+                # 调试日志
+                logger.debug(f"Processing segment {idx}, first few lines:")
+                first_few_lines = segment_content.split('\n')[:3]
+                for line in first_few_lines:
+                    logger.debug(f"Line: {line}")
+                
+                # 查找第一个和最后一个有效的时间戳
+                start_time = None
+                end_time = None
+                
+                lines = segment_content.split('\n')
+                # 查找第一个有效时间戳
+                for line in lines:
+                    try:
+                        # 尝试匹配时间戳格式
+                        import re
+                        time_match = re.match(r'(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})', line)
+                        if time_match:
+                            start_time = datetime.strptime(time_match.group(1), '%Y-%m-%d %H:%M:%S')
+                            break
+                    except Exception:
+                        continue
+                
+                # 从后向前查找最后一个有效时间戳
+                for line in reversed(lines):
+                    try:
+                        time_match = re.match(r'(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})', line)
+                        if time_match:
+                            end_time = datetime.strptime(time_match.group(1), '%Y-%m-%d %H:%M:%S')
+                            break
+                    except Exception:
+                        continue
+                
+                if start_time is None or end_time is None:
+                    logger.warning(f"Could not find valid timestamps for segment {idx}")
+                    # 使用当前时间作为默认值
+                    current_time = datetime.utcnow()
+                    start_time = start_time or current_time
+                    end_time = end_time or current_time
+                
+                chat_segment = ChatSegment(
+                    project_id=project_id,
+                    document_id=document_id,
+                    segment_index=idx,
+                    content=segment_content,
+                    start_time=start_time,
+                    end_time=end_time
+                )
+                db.session.add(chat_segment)
+                saved_segments.append(chat_segment)
+                logger.info(f"Created segment {idx} with time range: {start_time} to {end_time}")
+            
+            db.session.commit()
+            logger.info(f"Successfully saved {len(saved_segments)} segments")
+            
+            # 处理第一个分段的cards
+            if saved_segments:
+                first_segment = saved_segments[0]
+                logger.info(f"Processing cards for first segment {first_segment.id}")
+                cards_service = CardsService()
+                cards_service.process_segment(project_id, first_segment.id)
+            
+        except Exception as e:
+            db.session.rollback()
+            logger.error(f"Error creating segments: {str(e)}")
+            raise
 
     def generate_outline(self, project_id: str, user_input: str = None) -> str:
         """生成文档大纲"""

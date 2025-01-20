@@ -3,8 +3,11 @@ from flask_sqlalchemy import SQLAlchemy
 from flask_cors import CORS
 from config import Config
 import os
+from concurrent.futures import ThreadPoolExecutor
 
 db = SQLAlchemy()
+# 创建全局线程池
+thread_pool = ThreadPoolExecutor(max_workers=3)  # 可以根据需要调整worker数量
 
 def create_app(config_class=Config):
     app = Flask(__name__)
@@ -14,18 +17,14 @@ def create_app(config_class=Config):
     CORS(app)
     db.init_app(app)
     
-    # 导入所有模型以确保正确的表创建顺序
-    from app.models.model import Project, InputDocument, Outline, OutputDocument
     
-    # 创建所有表
-    with app.app_context():
-        db.create_all()
+    # 导入所有模型以确保正确的表创建顺序
+    from app.models.model import Project, InputDocument, Outline, OutputDocument, ChatSegment, Card
+    
 
     # 注册蓝图
     from app.api.routers import bp as api_bp
     app.register_blueprint(api_bp, url_prefix='/api')
-    
-    
     
     # 确保上传目录存在
     os.makedirs(app.config['PROJECT_FOLDER'], exist_ok=True)
@@ -36,7 +35,6 @@ def create_app(config_class=Config):
     except OSError:
         pass
     
-    # 创建数据库表
     with app.app_context():
         db.create_all()
     

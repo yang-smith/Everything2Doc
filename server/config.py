@@ -16,6 +16,5 @@ class Config:
     MAX_CONTENT_LENGTH = 50 * 1024 * 1024  # 50MB
     
 
-
     # 安全配置
     SECRET_KEY = os.getenv('SECRET_KEY', 'dev-key')
