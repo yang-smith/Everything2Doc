@@ -76,9 +76,9 @@ export const api = {
     });
   },
 
-  // Get processing status
+  // 获取文档处理状态
   async getStatus(id: string): Promise<ProcessingResult> {
-    const response = await fetch(`${API_BASE}/api/status/${id}`)
+    const response = await fetch(`${API_BASE}/api/projects/${id}/processing_status`)
     if (!response.ok) {
       throw new Error('Failed to get status')
     }
@@ -126,6 +126,15 @@ export const api = {
       throw new Error(error.error || 'Failed to update outline');
     }
   },
+
+  async startProcessing(projectId: string): Promise<void> {
+    const response = await fetch(`${API_BASE}/api/projects/${projectId}/start_processing`, {
+      method: 'POST',
+    });
+    if (!response.ok) {
+      throw new Error('Failed to start processing');
+    }
+  },
   // 获取文档
   async getDocument(documentId: string): Promise<OutputDocument> {
     const response = await fetch(`${API_BASE}/api/documents/${documentId}`);
@@ -133,6 +142,17 @@ export const api = {
       throw new Error('Failed to get document');
     }
     return response.json();
-  }
+  },
+
+  // 获取输出文档内容
+  async getOutputContent(projectId: string): Promise<string> {
+    const response = await fetch(`${API_BASE}/api/projects/${projectId}/output_content`)
+    if (!response.ok) {
+      const error = await response.json()
+      throw new Error(error.error || 'Failed to get output content')
+    }
+    const data = await response.json()
+    return data.content
+  },
 
 } 

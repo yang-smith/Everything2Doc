@@ -4,7 +4,6 @@ import { UploadArea } from "./file-upload/upload-area"
 import { FileList } from "./file-upload/file-list"
 import { useToast } from "@/hooks/use-toast"
 import { api } from "@/lib/api"
-import { Input } from "@/components/ui/input"
 
 interface UploadSectionProps {
   onComplete: (projectId: string) => void;
@@ -19,17 +18,16 @@ interface FileStatus {
 
 export function UploadSection({ onComplete }: UploadSectionProps) {
   const [files, setFiles] = useState<FileStatus[]>([]);
-  const [projectName, setProjectName] = useState<string>("");
   const [uploading, setUploading] = useState(false);
   const { toast } = useToast();
 
   const handleFilesSelected = (newFiles: File[]) => {
-    const fileStatuses = newFiles.map(file => ({
-      file,
+    const fileStatus = {
+      file: newFiles[0],
       progress: 0,
       status: 'pending' as const
-    }));
-    setFiles(prev => [...prev, ...fileStatuses]);
+    };
+    setFiles([fileStatus]);
   };
 
   const updateFileStatus = (file: File, updates: Partial<FileStatus>) => {
@@ -44,7 +42,7 @@ export function UploadSection({ onComplete }: UploadSectionProps) {
     setUploading(true);
     try {
     // 1. 创建项目
-    const name = projectName || files[0].file.name.replace(/\.[^/.]+$/, "");
+    const name = files[0].file.name.replace(/\.[^/.]+$/, "");
     const projectId = await api.createProject(name);
     console.log('Got project ID:', projectId);
 
@@ -87,8 +85,8 @@ export function UploadSection({ onComplete }: UploadSectionProps) {
     if (allSuccessful) {
       console.log('All files uploaded successfully');
       onComplete(projectId);
-      console.log('Called onComplete');
-    }
+        console.log('Called onComplete');
+      }
     } catch (error) {
       toast({
         title: "创建项目失败",
@@ -106,16 +104,10 @@ export function UploadSection({ onComplete }: UploadSectionProps) {
         <h2 className="text-lg font-semibold mb-4">上传文件</h2>
         
         <div className="space-y-4">
-          <Input
-            placeholder="你想生成什么类型的文档？"
-            value={projectName}
-            onChange={(e) => setProjectName(e.target.value)}
-          />
-          
           <UploadArea 
             onFilesSelected={handleFilesSelected}
             accept=".txt"
-            multiple={true}
+            multiple={false}
           />
         </div>
         

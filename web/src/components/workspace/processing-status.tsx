@@ -1,104 +1,108 @@
 import { useEffect, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { ArrowLeft, Loader2, CheckCircle, AlertCircle } from "lucide-react"
-import { Outline } from "@/types/workspace"
-import { api } from "@/lib/api"
 import { useToast } from "@/hooks/use-toast"
+import { api } from "@/lib/api"
 
 interface ProcessingStatusProps {
   projectId: string
-  outline: Outline
-  onComplete: (documentId: string) => void
-  onBack: () => void
-}
-
-interface ProcessingResult {
-  status: 'pending' | 'processing' | 'completed' | 'error'
-  progress: number
-  error?: string
-  documentId?: string
+  onComplete: (projectId: string) => void
+  onBack: (projectId: string) => void
 }
 
 export function ProcessingStatus({
   projectId,
-  outline,
   onComplete,
   onBack
 }: ProcessingStatusProps) {
-  const [result, setResult] = useState<ProcessingResult>({
-    status: 'pending',
-    progress: 0
-  })
+  const [status, setStatus] = useState<'pending' | 'processing' | 'completed' | 'error'>('pending')
+  const [progress, setProgress] = useState(0)
+  const [error, setError] = useState<string | null>(null)
   const { toast } = useToast()
-
+  console.log("ProcessingStatus rendered:", { projectId, status, progress })
+  
   useEffect(() => {
-    const startProcessing = async () => {
+    const checkStatus = async () => {
       try {
-        const result = await api.generateOutline(projectId)
-        setResult({status: 'completed', progress: 100, documentId: result})
+        const result = await api.getStatus(projectId)
+        setStatus(result.status)
+        setProgress(result.progress)
+        
+        if (result.status === 'error') {
+          setError('error')
+          toast({
+            title: "error",
+            description: 'processing error',
+            variant: "destructive",
+          })
+        } else if (result.status === 'completed') {
+          onComplete(projectId)
+        }
       } catch (error) {
-        setResult(prev => ({
-          ...prev,
-          status: 'error',
-          error: '处理失败'
-        }))
-        toast({
-          title: "处理失败",
-          description: "请稍后重试",
-          variant: "destructive"
-        })
+        console.error('Error checking status:', error)
       }
     }
 
-    startProcessing()
-  }, [projectId, outline])
+    checkStatus()
+    const interval = setInterval(checkStatus, 3000)
+    return () => clearInterval(interval)
+  }, [projectId, onComplete, toast])
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <Button variant="ghost" size="sm" onClick={onBack}>
+    <Card className="w-full max-w-2xl mx-auto">
+      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+        <CardTitle className="text-lg font-medium">文档处理</CardTitle>
+        <Button 
+          variant="ghost" 
+          size="sm" 
+          onClick={() => onBack(projectId)}
+          disabled={status === 'processing'}
+        >
           <ArrowLeft className="h-4 w-4 mr-2" />
           返回
         </Button>
-      </div>
-
-      <div className="rounded-lg border bg-card p-6">
-        <h2 className="text-lg font-semibold mb-4">处理进度</h2>
-
+      </CardHeader>
+      
+      <CardContent>
         <div className="space-y-4">
-          <div className="flex items-center gap-4">
-            {result.status === 'processing' && (
-              <Loader2 className="h-5 w-5 animate-spin text-blue-500" />
-            )}
-            {result.status === 'completed' && (
-              <CheckCircle className="h-5 w-5 text-green-500" />
-            )}
-            {result.status === 'error' && (
-              <AlertCircle className="h-5 w-5 text-red-500" />
-            )}
-            
-            <div className="flex-1">
-              <Progress value={result.progress} />
+          {/* 进度条和状态 */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between text-sm text-muted-foreground">
+              <div className="flex items-center gap-2">
+                {status === 'processing' && (
+                  <Loader2 className="h-4 w-4 animate-spin text-blue-500" />
+                )}
+                {status === 'completed' && (
+                  <CheckCircle className="h-4 w-4 text-green-500" />
+                )}
+                {status === 'error' && (
+                  <AlertCircle className="h-4 w-4 text-red-500" />
+                )}
+                <span>
+                  {status === 'pending' && "准备处理..."}
+                  {status === 'processing' && "正在处理文档..."}
+                  {status === 'completed' && "处理完成！"}
+                  {status === 'error' && error}
+                </span>
+              </div>
+              <span className="font-medium">{progress.toFixed(1)}%</span>
             </div>
             
-            <div className="text-sm font-medium">
-              {result.progress}%
-            </div>
+            <Progress 
+              value={progress} 
+              className="h-2"
+              // 根据状态改变颜色
+              variant={
+                status === 'error' ? 'destructive' : 
+                status === 'completed' ? 'success' : 
+                'default'
+              }
+            />
           </div>
-
-          {result.error && (
-            <p className="text-sm text-red-500">{result.error}</p>
-          )}
-
-          <p className="text-sm text-muted-foreground">
-            {result.status === 'pending' && "准备处理..."}
-            {result.status === 'processing' && "正在处理文档..."}
-            {result.status === 'completed' && "处理完成！"}
-            {result.status === 'error' && "处理出错"}
-          </p>
         </div>
-      </div>
-    </div>
+      </CardContent>
+    </Card>
   )
 }

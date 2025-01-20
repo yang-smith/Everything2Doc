@@ -7,10 +7,63 @@ from tqdm import tqdm
 import os 
 from ..preprocessing.reader import read_file
 from ..preprocessing.split import split_chat_records
-from ..prompt.prompt import PROMPT_GEN_STRUCTURE, PROMPT_GEN_DOC_STRUCTURE, PROMPT_GET_INFO, PROMPT_GEN_END_DOC
+from ..prompt.prompt import PROMPT_GEN_STRUCTURE, PROMPT_GEN_DOC_STRUCTURE, PROMPT_GET_INFO, PROMPT_GEN_END_DOC, PROMPT_EXTRACT_INFO
 from .gen_structure import gen_structure
+from dataclasses import dataclass
+from typing import List, Optional
 
+@dataclass
+class Card:
+    time: datetime
+    tags: List[str]
+    summary: str
+    details: str
+    
+    def to_markdown(self) -> str:
+        """转换为markdown格式"""
+        tags_str = ', '.join(self.tags)
+        return f"""<card>
+time: {self.time.strftime('%Y-%m-%d %H:%M:%S')}
+tags: {tags_str}
+summary: {self.summary}
 
+details: {self.details}
+</card>"""
+
+def parse_cards(markdown_text: str) -> List[Card]:
+    """从markdown文本解析出cards列表"""
+    cards = []
+    # 匹配<card>...</card>块
+    card_pattern = r'<card>(.*?)</card>'
+    card_matches = re.finditer(card_pattern, markdown_text, re.DOTALL)
+    
+    for match in card_matches:
+        card_content = match.group(1).strip()
+        
+        # 解析各个字段
+        time_match = re.search(r'time: (.*?)(?:\n|$)', card_content)
+        tags_match = re.search(r'tags: (.*?)(?:\n|$)', card_content)
+        summary_match = re.search(r'summary: (.*?)(?:\n|$)', card_content)
+        details_match = re.search(r'details: (.*?)(?:\n|$)', card_content)
+        
+        if all([time_match, tags_match, summary_match, details_match]):
+            try:
+                time = datetime.strptime(time_match.group(1).strip(), '%Y-%m-%d %H:%M:%S')
+                tags = [tag.strip() for tag in tags_match.group(1).split(',')]
+                summary = summary_match.group(1).strip()
+                details = details_match.group(1).strip()
+                
+                cards.append(Card(
+                    time=time,
+                    tags=tags,
+                    summary=summary,
+                    details=details
+                ))
+            except Exception as e:
+                print(f"Error parsing card: {str(e)}")
+                continue
+    
+    return cards
 
 def merge_chapter_results(results: list[str]) -> str:
     """
@@ -58,7 +111,11 @@ def merge_chapter_results(results: list[str]) -> str:
 
 
 
-def process_segments_parallel(segments, task, model = "openai/gpt-4o-mini-2024-07-18"):
+def process_segments_parallel(segments, 
+                                task, 
+                                model = "openai/gpt-4o-mini-2024-07-18",
+                                progress_callback=None):
+    
     # 定义一个处理单个 segment 的函数
     def process_segment(segment):
         prompt_gen_doc_content = PROMPT_GET_INFO.format(
@@ -71,6 +128,9 @@ def process_segments_parallel(segments, task, model = "openai/gpt-4o-mini-2024-0
         )
 
     all_results = []
+    total_segments = len(segments)
+    completed = 0
+
     with ThreadPoolExecutor(max_workers=20) as executor:
         # 提交所有任务
         future_to_segment = {
@@ -87,6 +147,14 @@ def process_segments_parallel(segments, task, model = "openai/gpt-4o-mini-2024-0
             try:
                 result = future.result()
                 all_results.append(result)
+                # 更新进度
+                completed += 1
+                if progress_callback:
+                    try:
+                        progress = (completed / total_segments) * 100
+                        progress_callback(progress)
+                    except Exception as e:
+                        print(f"Progress callback failed: {str(e)}")
             except Exception as e:
                 print(f"Segment processing failed: {str(e)}")
     
@@ -153,6 +221,55 @@ def process_chapters_to_document(merged_result: str, outline: str, model: str = 
     return cleaned_document
 
 
+def generate_cards(chat_records: str, model: str = "deepseek-chat"):
+    cards =  ai_chat(message=PROMPT_EXTRACT_INFO.format(chat_records=chat_records), model=model)
+    return cards
+
+
+def process_segments_to_cards_parallel(segments: list, 
+                                     model: str = "deepseek-chat",
+                                     max_workers: int = 20) -> List[Card]:
+    """
+    并行处理聊天记录片段，生成知识卡片
+    
+    Args:
+        segments: 聊天记录片段列表
+        model: 使用的AI模型
+        max_workers: 最大并行工作线程数
+    
+    Returns:
+        List[Card]: 生成的知识卡片列表
+    """
+    def process_segment(segment):
+        try:
+            markdown_text = generate_cards(segment, model=model)
+            return parse_cards(markdown_text)
+        except Exception as e:
+            print(f"Segment processing failed: {str(e)}")
+            return []
+
+    all_cards = []
+    
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        future_to_segment = {
+            executor.submit(process_segment, segment): i 
+            for i, segment in enumerate(segments)
+        }
+        
+        for future in tqdm(
+            concurrent.futures.as_completed(future_to_segment),
+            total=len(future_to_segment),
+            desc="Generating cards"
+        ):
+            try:
+                cards = future.result()
+                all_cards.extend(cards)
+            except Exception as e:
+                print(f"Card generation failed: {str(e)}")
+    
+    # 按时间排序
+    all_cards.sort(key=lambda x: x.time, reverse=True)
+    return all_cards
 
 def test_update_doc():
 

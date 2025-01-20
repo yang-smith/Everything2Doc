@@ -13,59 +13,16 @@ from everything2doc import (
     read_file
 )
 import os
-from app.tasks.process_segment import create_segments_task
 
-class DocumentService:
+class CardsService:
     def __init__(self):
         self.file_handler = FileHandler()
-    
-    def add_document_to_project(self, project_id: str, file) -> InputDocument:
-        """添加文档到项目"""
-        try:
-            # 检查项目是否存在
-            project = Project.query.get(project_id)
-            if not project:
-                raise NotFound('Project not found')
-                
-            # 验证文件类型
-            if not self.file_handler.allowed_file(file.filename):
-                raise ValueError("Invalid file type")
-            
-            # 保存到输入文件夹
-            file_path, file_size = self.file_handler.save_input_file(file, project_id)
-            
-            # 创建文档记录
-            document = InputDocument(
-                project_id=project_id,
-                filename=file.filename,
-                file_path=file_path,
-                file_size=file_size,
-                status='uploaded'
-            )
-            
-            db.session.add(document)
-            db.session.commit()
-            
-            # 异步触发分段处理
-            create_segments_task.delay(
-                project_id=project_id,
-                document_id=document.id,
-                file_path=document.file_path
-            )
-            
-            return document
-            
-        except Exception as e:
-            db.session.rollback()
-            # 如果保存文件后发生错误，清理文件
-            if 'file_path' in locals():
-                os.remove(file_path)
-            raise e
 
+            
             
 
     def generate_outline(self, project_id: str, user_input: str = None) -> str:
-        """生成文档大纲"""
+        """生成文档简述"""
         project = Project.query.get_or_404(project_id)
         
         try:
@@ -127,35 +84,6 @@ class DocumentService:
             db.session.commit()
             raise e
 
-    def update_outline(self, project_id: str, content: str = None) -> Outline:
-        """更新大纲"""
-        try:
-            project = Project.query.get_or_404(project_id)
-            
-            # 获取或创建大纲对象
-            outline = project.outline
-            if not outline:
-                outline = Outline(project_id=project_id)
-                db.session.add(outline)
-            
-            # 保存大纲文件
-            outline_path = self.file_handler.save_outline(
-                content,
-                project_id
-            )
-            
-            # 更新数据库记录
-            outline.file_path = outline_path
-            outline.content = content
-            outline.status = 'completed'
-            project.status = 'outline_updated'
-            
-            db.session.commit()
-            return outline
-            
-        except Exception as e:
-            db.session.rollback()
-            raise e
 
 
     def start_processing(self, project_id: str) -> dict:

@@ -91,6 +91,7 @@ class OutputDocument(db.Model):
     title = db.Column(db.String(200))
     file_path = db.Column(db.String(500))  # 相对于 output 目录的路径
     status = db.Column(db.String(20), default='generating')
+    progress = db.Column(db.Float, default=0.0)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
@@ -108,6 +109,50 @@ class OutputDocument(db.Model):
             'title': self.title,
             'content': self.get_content(),
             'status': self.status,
+            'progress': self.progress,
             'created_at': self.created_at.isoformat(),
             'updated_at': self.updated_at.isoformat()
+        }
+
+
+class ChatSegment(db.Model):
+    __tablename__ = 'chat_segments'
+    
+    id = db.Column(db.String(36), primary_key=True, default=generate_uuid)
+    project_id = db.Column(db.String(36), db.ForeignKey('projects.id'), nullable=False)
+    segment_index = db.Column(db.Integer, nullable=False)  # 分段序号
+    content = db.Column(db.Text)  # 分段内容
+    start_time = db.Column(db.DateTime)  # 分段开始时间
+    end_time = db.Column(db.DateTime)    # 分段结束时间
+    is_processed = db.Column(db.Boolean, default=False)  # 是否已生成cards
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'project_id': self.project_id,
+            'segment_index': self.segment_index,
+            'start_time': self.start_time.isoformat() if self.start_time else None,
+            'end_time': self.end_time.isoformat() if self.end_time else None,
+            'is_processed': self.is_processed
+        }
+
+class Card(db.Model):
+    __tablename__ = 'cards'
+    
+    id = db.Column(db.String(36), primary_key=True, default=generate_uuid)
+    project_id = db.Column(db.String(36), db.ForeignKey('projects.id'), nullable=False)
+    segment_id = db.Column(db.String(36), db.ForeignKey('chat_segments.id'), nullable=False)
+    content = db.Column(db.Text)
+    timestamp = db.Column(db.DateTime, default=datetime.utcnow)
+    metadata = db.Column(db.JSON)  # 存储额外信息
+    
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'project_id': self.project_id,
+            'type': self.type,
+            'content': self.content,
+            'timestamp': self.timestamp.isoformat(),
+            'metadata': self.metadata
         }

@@ -40,7 +40,7 @@ export default function WorkspacePage() {
   }, [status, data])
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-5">
       {status === "upload" && (
         <UploadSection 
           onComplete={(projectId) => {
@@ -53,27 +53,26 @@ export default function WorkspacePage() {
       {status === "outline" && data.projectId && (
         <OutlineEditor
           projectId={data.projectId}
-          onComplete={() => 
-            updateWorkspace("processing", {})}
-          onBack={() => 
-            updateWorkspace("upload", {})}
+          onComplete={(projectId) => 
+            updateWorkspace("processing", {projectId})}
+          onBack={(projectId) => 
+            updateWorkspace("upload", {projectId})}
         />
       )}
 
-      {status === "processing" && data.projectId && data.outline && (
+      {status === "processing" && data.projectId && (
         <ProcessingStatus
           projectId={data.projectId}
-          outline={data.outline}
-          onComplete={(documentId) => updateWorkspace("preview", { documentId })}
-          onBack={() => updateWorkspace("outline", {})}
+          onComplete={(projectId) => updateWorkspace("preview", { projectId })}
+          onBack={(projectId) => updateWorkspace("outline", { projectId })}
         />
       )}
 
-      {status === "preview" && data.documentId && (
+      {status === "preview" && data.projectId && (
         <DocumentPreview
-          documentId={data.documentId}
-          onBack={() => 
-            updateWorkspace("processing", {})}
+          projectId={data.projectId}
+          onBack={(projectId) => 
+            updateWorkspace("processing", { projectId })}
         />
       )}
     </div>

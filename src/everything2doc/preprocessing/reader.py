@@ -1,6 +1,14 @@
+from typing import TypedDict, List
 from datetime import datetime
 import re
 import os 
+
+class Message(TypedDict):
+    timestamp: str
+    content: str
+    sender: str
+    type: str
+    metadata: dict
 
 def read_file(filename: str) -> str:
     """
@@ -38,7 +46,7 @@ def read_file(filename: str) -> str:
     except Exception as e:
         raise IOError(f"Error reading file {filename}: {str(e)}")
 
-def read_chat_records(filename='ToAnotherCountry.txt', max_lines=300):
+def read_chat_records(filename, max_lines=300):
     """
     读取聊天记录文件的前N行并返回格式化的字符串
     
@@ -69,5 +77,66 @@ def read_chat_records(filename='ToAnotherCountry.txt', max_lines=300):
     except Exception as e:
         print(f"读取文件时发生错误: {str(e)}")
         return None
+
+def parse_single_message(message_text: str) -> Message:
+    """
+    将单条消息文本解析为标准格式
+    
+    Args:
+        message_text: 原始消息文本
+        
+    Returns:
+        Message: 标准格式的消息对象
+        
+    Raises:
+        ValueError: 当消息格式不正确时
+    """
+    # 更新后的模式，捕获时间戳、发送者和内容
+    pattern = r'(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}) ([^-\n]+?)(?:[ ]*-[ ]*|\s+)(.+)'
+    match = re.match(pattern, message_text.strip(), re.DOTALL)
+    
+    if not match:
+        raise ValueError(f"Invalid message format: {message_text}")
+        
+    timestamp_str, sender, content = match.groups()
+    
+    # 清理发送者名称（移除URL等）
+    sender = re.split(r'\s+(?:https?://|$)', sender.strip())[0]
+    
+    # 转换时间戳为ISO 8601格式
+    timestamp = datetime.strptime(timestamp_str, '%Y-%m-%d %H:%M:%S').isoformat()
+    
+    return Message(
+        timestamp=timestamp,
+        content=content.strip(),
+        sender=sender.strip(),
+        type="text",
+        metadata={}
+    )
+
+def parse_messages(chat_text: str) -> List[Message]:
+    """
+    将聊天记录文本解析为标准格式的消息列表
+    
+    Args:
+        chat_text: 完整的聊天记录文本
+        
+    Returns:
+        List[Message]: 标准格式的消息列表
+    """
+    # 使用更灵活的模式来分割消息
+    pattern = r'(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2} .+?)(?=\n\d{4}-\d{2}-\d{2}|\Z)'
+    messages = re.findall(pattern, chat_text, re.DOTALL)
+    
+    parsed_messages = []
+    for msg in messages:
+        if msg.strip():
+            try:
+                parsed_messages.append(parse_single_message(msg))
+            except ValueError as e:
+                print(f"Warning: Skipping invalid message: {e}")
+                continue
+    
+    return parsed_messages
 
 

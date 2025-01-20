@@ -1,0 +1,87 @@
+/* 自定义时间轴样式 */
+.vertical-timeline::before {
+  background: var(--border);
+  width: 2px;
+}
+
+.vertical-timeline-element {
+  margin: 2rem 0;
+}
+
+.vertical-timeline-element-icon {
+  box-shadow: 0 0 0 4px var(--border), inset 0 2px 0 rgba(0, 0, 0, 0.08), 0 3px 0 4px rgba(0, 0, 0, 0.05);
+  transition: all 0.3s ease;
+}
+
+.vertical-timeline-element-content {
+  transition: all 0.3s ease;
+}
+
+.vertical-timeline-element-content:hover {
+  transform: translateX(4px);
+}
+
+.vertical-timeline-element-date {
+  color: var(--muted-foreground);
+  font-size: 0.875rem;
+  padding: 0.5rem 1rem;
+  background: var(--background);
+  border-radius: 0.5rem;
+  margin-left: -1rem;
+}
+
+/* 暗色模式适配 */
+[data-theme='dark'] .vertical-timeline-element-content {
+  box-shadow: none;
+  border: 1px solid var(--border);
+}
+
+.vertical-timeline-custom {
+  width: 100%;
+  max-width: none;
+  padding: 0;
+  margin: 0;
+  scrollbar-width: thin; /* Firefox */
+  scrollbar-color: var(--border) transparent; /* Firefox */
+}
+
+.vertical-timeline-custom::before {
+  left: 18px;
+}
+
+.vertical-timeline-element {
+  margin: 2em 0;
+  width: 100%;
+}
+
+/* Custom scrollbar styles */
+.vertical-timeline-custom {
+  scrollbar-width: thin; /* Firefox */
+  scrollbar-color: var(--border) transparent; /* Firefox */
+}
+
+/* Webkit browsers */
+.vertical-timeline-custom::-webkit-scrollbar {
+  width: 4px;
+}
+
+.vertical-timeline-custom::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.vertical-timeline-custom::-webkit-scrollbar-thumb {
+  background-color: var(--border);
+  border-radius: 8px;
+}
+
+/* Hover state */
+.vertical-timeline-custom::-webkit-scrollbar-thumb:hover {
+  background-color: var(--muted-foreground);
+}
+
+/* Hide scrollbar when not hovering */
+.vertical-timeline-custom {
+  &:not(:hover)::-webkit-scrollbar-thumb {
+    background-color: transparent;
+  }
+} 

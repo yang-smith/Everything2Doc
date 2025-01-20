@@ -6,8 +6,8 @@ import { toast } from '@/hooks/use-toast'
 
 interface OutlineSectionProps {
   projectId: string;
-  onComplete: () => void;
-  onBack: () => void;
+  onComplete: (projectId: string) => void;
+  onBack: (projectId: string) => void;
 }
 
 interface OutlineData {
@@ -74,6 +74,18 @@ export function OutlineEditor({ projectId, onComplete, onBack }: OutlineSectionP
     }
   };
 
+  // 开始生成
+  const handleStartGenerate = () => {
+    onComplete(projectId);
+    api.startProcessing(projectId).catch(error => {
+      console.error("Error starting processing:", error)
+      toast({
+        title: "启动处理失败",
+        description: "无法开始文档处理",
+        variant: "destructive",
+      });
+    });
+  };
 
 return (
   <div className="space-y-6">
@@ -142,7 +154,7 @@ return (
     <div className="flex justify-between pt-4 border-t">
       <Button
         variant="outline"
-        onClick={onBack}
+        onClick={() => onBack(projectId)}
         className="w-[100px]"
       >
         <svg
@@ -163,11 +175,11 @@ return (
       </Button>
 
       <Button
-        onClick={onComplete}
+        onClick={handleStartGenerate}
         className="w-[100px]"
         disabled={!outline || isEditing} // 如果正在编辑或没有大纲时禁用
       >
-        下一步
+        开始生成
         <svg
           xmlns="http://www.w3.org/2000/svg"
           width="16"

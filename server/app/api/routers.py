@@ -102,7 +102,7 @@ def update_outline(project_id):
 
 
 # 开始处理
-@bp.route('/projects/<project_id>/process', methods=['POST'])
+@bp.route('/projects/<project_id>/start_processing', methods=['POST'])
 def start_processing(project_id):
     """开始处理文档"""
     try:
@@ -116,28 +116,40 @@ def start_processing(project_id):
         current_app.logger.error(f"Error processing document: {str(e)}")
         return jsonify({'error': 'Internal server error'}), 500
 
-@bp.route('/projects/<project_id>/status', methods=['GET'])
+@bp.route('/projects/<project_id>/processing_status', methods=['GET'])
 def get_processing_status(project_id):
-    """获取处理状态"""
+    """获取文档处理状态"""
     try:
-        project = Project.query.get_or_404(project_id)
-        output_doc = project.output_documents[-1] if project.output_documents else None
-        
-        if not output_doc:
+        result = document_service.get_processing_status(project_id)
+        if not result:
             return jsonify({
-                'status': 'not_started'
+                'status': 'not_started',
+                'progress': 0,
             })
             
-        return jsonify({
-            'status': output_doc.status,
-            'progress': output_doc.progress if hasattr(output_doc, 'progress') else None,
-            'error': output_doc.error if output_doc.status == 'error' else None,
-            'document_id': output_doc.id if output_doc.status == 'completed' else None
-        })
+        return jsonify(result)
         
     except Exception as e:
         current_app.logger.error(f"Error getting status: {str(e)}")
         return jsonify({'error': 'Internal server error'}), 500
+
+@bp.route('/projects/<project_id>/output_content', methods=['GET'])
+def get_project_output_content(project_id):
+    """获取项目文档内容"""
+    try:
+        content = document_service.get_output_document(project_id)
+        return jsonify({
+            'content': content
+        })
+    except NotFound:
+        return jsonify({
+            'error': 'No document found for this project'
+        }), 404
+    except Exception as e:
+        current_app.logger.error(f"Error getting document content: {str(e)}")
+        return jsonify({
+            'error': 'Internal server error'
+        }), 500
 
 # 错误处理
 @bp.errorhandler(404)
