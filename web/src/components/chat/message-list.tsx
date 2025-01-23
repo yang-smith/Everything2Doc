@@ -71,7 +71,7 @@ export const VirtualMessageList = memo(function MessageList({ messages }: Messag
             {message.content}
           </div>
         ) : (
-          <SpecialMessage message={message} isSequential={isSequential} />
+          message.content
         )}
       </div>
     )
