@@ -7,7 +7,7 @@ from tqdm import tqdm
 import os 
 from ..preprocessing.reader import read_file
 from ..preprocessing.split import split_chat_records
-from ..prompt.prompt import PROMPT_GEN_STRUCTURE, PROMPT_GEN_DOC_STRUCTURE, PROMPT_GET_INFO, PROMPT_GEN_END_DOC, PROMPT_EXTRACT_INFO
+from ..prompt.prompt import PROMPT_GEN_STRUCTURE, PROMPT_GEN_DOC_STRUCTURE, PROMPT_GET_INFO, PROMPT_GEN_END_DOC, PROMPT_EXTRACT_INFO, PROMPT_GEN_OVERVIEW
 from .gen_structure import gen_structure
 from dataclasses import dataclass
 from typing import List, Optional
@@ -220,6 +220,11 @@ def process_chapters_to_document(merged_result: str, outline: str, model: str = 
     
     return cleaned_document
 
+def process_segments_to_cards_single(segment: str, model: str = "deepseek-chat"):
+    cards =  ai_chat(message=PROMPT_EXTRACT_INFO.format(chat_records=segment), model=model)
+    cards = parse_cards(cards)
+    cards.sort(key=lambda x: x.time, reverse=True)
+    return cards
 
 def generate_cards(chat_records: str, model: str = "deepseek-chat"):
     cards =  ai_chat(message=PROMPT_EXTRACT_INFO.format(chat_records=chat_records), model=model)
@@ -270,6 +275,11 @@ def process_segments_to_cards_parallel(segments: list,
     # 按时间排序
     all_cards.sort(key=lambda x: x.time, reverse=True)
     return all_cards
+
+
+def generate_overview(chat_records: str, model: str = "meta-llama/llama-3.3-70b-instruct"):
+    overview = ai_chat(message=PROMPT_GEN_OVERVIEW.format(chat_records=chat_records), model=model)
+    return overview
 
 def test_update_doc():
 

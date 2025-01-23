@@ -1,5 +1,5 @@
 from app import db, thread_pool
-from app.models.model import InputDocument, Outline, OutputDocument, Project, ChatSegment, Card
+from app.models.model import InputDocument, Outline, SegmentStatus, OutputDocument, Project, ChatSegment, Card
 from app.utils.file_handler import FileHandler
 from werkzeug.datastructures import FileStorage
 from werkzeug.exceptions import NotFound
@@ -10,7 +10,8 @@ from everything2doc import (
     process_segments_parallel,
     process_chapters_to_document,
     merge_chapter_results,
-    read_file
+    read_file,
+    process_segments_to_cards_single
 )
 import os
 from concurrent.futures import Future
@@ -249,26 +250,37 @@ class CardsService:
             print(f"Error reading document content: {str(e)}")
             return ''
 
-    def get_project_cards(self, project_id: str, page: int = 1, per_page: int = 10) -> Dict:
-        """分页获取项目的cards"""
+    def get_project_cards(self, project_id: str) -> List[Card]:
+        """获取项目的所有cards"""
         project = Project.query.get_or_404(project_id)
         
-        # 获取分页数据
-        pagination = Card.query.filter_by(project_id=project_id)\
+        # 获取所有cards并按时间戳排序
+        cards = Card.query.filter_by(project_id=project_id)\
             .order_by(Card.timestamp.desc())\
-            .paginate(page=page, per_page=per_page, error_out=False)
+            .all()
+        
+      # 检查所有segments的状态
+        segments = ChatSegment.query.filter_by(project_id=project_id).all()
+        all_completed = True
+        if segments:
+            for segment in segments:
+                if segment.status != SegmentStatus.COMPLETED:
+                    all_completed = False
+                    break
+        else:
+            all_completed = False  # 如果没有segments，设为False
             
-        return {
-            'items': [card.to_dict() for card in pagination.items],
-            'total': pagination.total,
-            'has_next': pagination.has_next,
-            'next_page': pagination.next_num if pagination.has_next else None
-        }
+        if all_completed:
+            status = 'completed'
+        else:
+            status = 'processing'
+
+        return cards, status
     
+
     def process_segment(self, project_id: str, segment_id: str) -> dict:
         """处理指定分段"""
         try:
-            # 验证分段存在且属于正确的项目
             segment = ChatSegment.query.filter_by(
                 project_id=project_id,
                 id=segment_id
@@ -276,31 +288,28 @@ class CardsService:
             
             logger.info(f"Starting to process segment {segment_id} for project {project_id}")
             
-            # 获取应用上下文对象
             app = current_app._get_current_object()
             
-            # 提交到线程池
+            # 提交到线程池并添加超时
             future = thread_pool.submit(
-                self._process_segment_wrapper,  # 使用新的包装函数
+                self._process_segment_wrapper,
                 app=app,
                 segment_id=segment_id
             )
             
-            # 添加回调处理执行结果
             def done_callback(fut: Future, seg_id=segment_id):
                 with app.app_context():
                     try:
-                        fut.result()  # 这会重新抛出任何异常
+                        fut.result(timeout=1800)  # 30分钟超时
                         segment = ChatSegment.query.get(seg_id)
                         if segment:
-                            segment.is_processed = True
+                            segment.status = SegmentStatus.COMPLETED
                             db.session.commit()
                             logger.info(f"Segment {seg_id} processing completed")
                     except Exception as e:
                         segment = ChatSegment.query.get(seg_id)
                         if segment:
-                            segment.is_processed = False
-                            segment.error = str(e)
+                            segment.status = SegmentStatus.ERROR
                             db.session.commit()
                         logger.error(f"Error processing segment {seg_id}: {str(e)}")
             
@@ -322,7 +331,7 @@ class CardsService:
             return self._process_segment_task(segment_id)
 
     def _process_segment_task(self, segment_id: str):
-        """实际的处理任务"""
+        """处理一个segment"""
         try:
             logger.info(f"Starting to process segment {segment_id}")
             
@@ -332,11 +341,12 @@ class CardsService:
             
             logger.info(f"Processing segment {segment_id} with content length: {len(segment.content)}")
             
+            segment.status = SegmentStatus.PROCESSING
+            db.session.commit()
             # 生成cards
-            cards = process_segments_to_cards_parallel(
-                [segment.content],
+            cards = process_segments_to_cards_single(
+                segment.content,
                 model="deepseek-chat",
-                max_workers=1
             )
             
             logger.info(f"Generated {len(cards)} cards for segment {segment_id}")
@@ -358,6 +368,8 @@ class CardsService:
             db.session.commit()
             logger.info(f"Successfully saved {len(cards)} cards for segment {segment_id}")
             
+            segment.status = SegmentStatus.COMPLETED
+            db.session.commit() 
             return True
             
         except Exception as e:
@@ -366,11 +378,35 @@ class CardsService:
             raise
 
     def get_project_segments(self, project_id: str) -> List[Dict]:
-        """获取项目的所有分段信息"""
+        """获取项目的所有分段信息，content只返回第一行作为预览"""
         project = Project.query.get_or_404(project_id)
         
         segments = ChatSegment.query.filter_by(project_id=project_id)\
             .order_by(ChatSegment.segment_index.asc())\
             .all()
+        logger.info(f"Starting to process segment {segments}")
+        result = []
+        for segment in segments:
+            segment_dict = segment.to_dict()
+            # 只保留content的第一行作为预览
+            if segment.content:
+                first_line = segment.content.splitlines()[0] if segment.content.splitlines() else ""
+                segment_dict['content'] = first_line[:100] + "..." if len(first_line) > 100 else first_line
+            result.append(segment_dict)
             
-        return [segment.to_dict() for segment in segments]
+        return result
+    
+    def get_segment_status(self, segment_id: str) -> dict:
+        """获取指定分段的状态"""
+        segment = ChatSegment.query.get(segment_id)
+        return segment.status if segment else {'status': 'not_found'}
+
+    def get_segment_cards(self, segment_id: str) -> List[Card]:
+        """获取segment下的所有cards"""
+        segment = ChatSegment.query.get(segment_id)
+        
+        cards = Card.query.filter_by(segment_id=segment_id)\
+            .order_by(Card.timestamp.asc())\
+            .all()
+            
+        return cards

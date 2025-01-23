@@ -85,7 +85,6 @@ export function UploadSection({ onComplete }: UploadSectionProps) {
     if (allSuccessful) {
       console.log('All files uploaded successfully');
       onComplete(projectId);
-        console.log('Called onComplete');
       }
     } catch (error) {
       toast({

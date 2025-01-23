@@ -47,7 +47,7 @@ const actions: Action[] = [
   }
 ]
 
-export function RecommendedActions() {
+export function RecommendedActions(props: { projectId: string }) {
   const [hoveredAction, setHoveredAction] = React.useState<string | null>(null)
 
   return (

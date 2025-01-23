@@ -5,7 +5,9 @@ from .worker import (
     process_segments_parallel,
     process_chapters_to_document, 
     merge_chapter_results,
-    process_segments_to_cards_parallel
+    process_segments_to_cards_parallel,
+    generate_overview,
+    process_segments_to_cards_single
 )
 
 __all__ = [
@@ -13,5 +15,7 @@ __all__ = [
     'process_segments_parallel',
     'process_chapters_to_document',
     'merge_chapter_results',
-    'process_segments_to_cards_parallel'
+    'process_segments_to_cards_parallel',
+    'generate_overview',
+    'process_segments_to_cards_single'
 ]

@@ -11,7 +11,8 @@ from everything2doc import (
     process_segments_parallel,
     process_chapters_to_document,
     merge_chapter_results,
-    read_file
+    read_file,
+    generate_overview
 )
 import os
 from flask import current_app
@@ -19,6 +20,7 @@ from datetime import datetime
 from functools import partial
 from concurrent.futures import Future
 import logging
+import re
 
 logger = logging.getLogger(__name__)
 
@@ -34,7 +36,9 @@ class DocumentService:
             project = Project.query.get(project_id)
             if not project:
                 raise NotFound('Project not found')
-            
+            project.status = 'processing'
+            db.session.commit()
+
             # 保存文件    
             file_path, file_size = self.file_handler.save_input_file(file, project_id)
             logger.info(f"Saved file {file.filename} to {file_path}")
@@ -180,12 +184,24 @@ class DocumentService:
             db.session.commit()
             logger.info(f"Successfully saved {len(saved_segments)} segments")
             
-            # 处理第一个分段的cards
             if saved_segments:
                 first_segment = saved_segments[0]
-                logger.info(f"Processing cards for first segment {first_segment.id}")
-                cards_service = CardsService()
-                cards_service.process_segment(project_id, first_segment.id)
+                document = InputDocument.query.get(document_id)
+                overview = generate_overview(first_segment.content)
+                document.overview = overview
+                db.session.commit()
+                logger.info(f"Generated overview for document {document_id}")
+
+            # Process cards for all segments
+
+            cards_service = CardsService()
+            for segment in reversed(saved_segments):
+                try:
+                    logger.info(f"Processing cards for segment {segment.id}")
+                    cards_service.process_segment(project_id, segment.id)
+                except Exception as e:
+                    logger.error(f"Error processing cards for segment {segment.id}: {str(e)}")
+                    continue
             
         except Exception as e:
             db.session.rollback()
@@ -443,3 +459,43 @@ class DocumentService:
         except Exception as e:
             print(f"Error reading document content: {str(e)}")
             return ''
+
+    def get_project_overview(self, project_id: str) -> dict:
+        """获取项目概要，包括描述、消息数量和总时长"""
+        document = InputDocument.query.filter_by(project_id=project_id).first()
+        
+        # 读取文档内容
+        with open(document.file_path, 'r', encoding='utf-8') as f:
+            content = f.read()
+        
+        # 计算消息数量 (匹配时间戳开头的行)
+        messages = re.findall(r'\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}.*', content)
+        message_count = len(messages)
+        
+
+        # 计算对话时间范围
+        timestamps = re.findall(r'(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2})', content)
+        if timestamps:
+            try:
+                earliest = datetime.strptime(timestamps[0], '%Y-%m-%d %H:%M:%S')
+                latest = datetime.strptime(timestamps[-1], '%Y-%m-%d %H:%M:%S')
+                total_time = f"{earliest.strftime('%Y年%m月%d日')} - {latest.strftime('%Y年%m月%d日')}"
+            except Exception as e:
+                current_app.logger.error(f"Error calculating duration: {str(e)}")
+                total_time = "计算错误"
+        else:
+            total_time = "暂无对话"
+    
+        
+        return {
+            'description': document.overview if document.overview else 'processing',
+            'messageCount': message_count,
+            'totalTime': total_time
+        }
+
+    def get_project_content(self, project_id: str) -> str:
+        """获取文档内容"""
+        document = InputDocument.query.filter_by(project_id=project_id).first()
+        if not document:
+            raise NotFound("No input document found for this project")
+        return read_file(document.file_path)

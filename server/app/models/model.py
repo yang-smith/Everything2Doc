@@ -49,6 +49,7 @@ class InputDocument(db.Model):
     filename = db.Column(db.String(200))  # 原始文件名
     file_path = db.Column(db.String(500))  # 相对于 input 目录的路径
     file_size = db.Column(db.Integer)
+    overview = db.Column(db.Text)
     status = db.Column(db.String(20), default=DocumentStatus.UPLOADED)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
@@ -58,6 +59,7 @@ class InputDocument(db.Model):
             'project_id': self.project_id,
             'filename': self.filename,
             'file_size': self.file_size,
+            'overview': self.overview,
             'status': self.status,
             'created_at': self.created_at.isoformat()
         }
@@ -114,6 +116,11 @@ class OutputDocument(db.Model):
             'updated_at': self.updated_at.isoformat()
         }
 
+class SegmentStatus(str, Enum):
+    PENDING = 'pending'
+    PROCESSING = 'processing' 
+    COMPLETED = 'completed'
+    ERROR = 'error'
 
 class ChatSegment(db.Model):
     __tablename__ = 'chat_segments'
@@ -125,9 +132,10 @@ class ChatSegment(db.Model):
     content = db.Column(db.Text)  # 分段内容
     start_time = db.Column(db.DateTime)  # 分段开始时间
     end_time = db.Column(db.DateTime)    # 分段结束时间
-    is_processed = db.Column(db.Boolean, default=False)  # 是否已生成cards
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    
+    status = db.Column(db.String(20), default=SegmentStatus.PENDING)
+
+
     def to_dict(self):
         return {
             'id': self.id,
@@ -136,7 +144,7 @@ class ChatSegment(db.Model):
             'segment_index': self.segment_index,
             'start_time': self.start_time.isoformat() if self.start_time else None,
             'end_time': self.end_time.isoformat() if self.end_time else None,
-            'is_processed': self.is_processed
+            'status': self.status,
         }
 
 class Card(db.Model):

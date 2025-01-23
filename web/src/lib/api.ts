@@ -1,6 +1,7 @@
 import { Outline } from "@/types/workspace";
 import { OutputDocument } from "@/types/workspace";
-
+import { Segment, Card, ProjectOverview } from '@/types/type-cards'
+import { Project } from '@/types/workspace'
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
 
 export type ProcessingStatus = 'pending' | 'processing' | 'completed' | 'error'
@@ -29,6 +30,11 @@ export interface OutlineResult {
   status: 'pending' | 'processing' | 'completed' | 'error';
   outline?: OutlineData;
   error?: string;
+}
+
+export interface ProjectCardsResponse {
+  cards: Card[];
+  status: 'completed' | 'processing';
 }
 
 export const api = {
@@ -155,4 +161,69 @@ export const api = {
     return data.content
   },
 
+  //cards部分
+
+  async getProjectSegments(projectId: string): Promise<Segment[]> {
+    const response = await fetch(`${API_BASE}/api/projects/${projectId}/segments`)
+    if (!response.ok) {
+      throw new Error('Failed to fetch segments')
+    }
+    return response.json()
+  },
+
+  async getSegmentStatus(segmentId: string): Promise<Segment> {
+    const response = await fetch(`${API_BASE}/api/segments/${segmentId}/status`)
+    if (!response.ok) {
+      throw new Error('Failed to fetch segment status')
+    }
+    return response.json()
+  },
+
+  async getSegmentCards(segmentId: string): Promise<Card[]> {
+    const response = await fetch(`${API_BASE}/api/segments/${segmentId}/cards`)
+    if (!response.ok) {
+      throw new Error('Failed to fetch segment cards')
+    }
+    const data = await response.json()
+    return data.cards
+  },
+
+  async getProjectCards(projectId: string): Promise<ProjectCardsResponse> {
+    const response = await fetch(`${API_BASE}/api/projects/${projectId}/cards`)
+    if (!response.ok) {
+      throw new Error('Failed to fetch project cards')
+    }
+    const data = await response.json()
+    return {
+      cards: data.cards,
+      status: data.status
+    }
+  },
+
+  async getProjectOverview(projectId: string): Promise<ProjectOverview> {
+    const response = await fetch(`${API_BASE}/api/projects/${projectId}/overview`)
+    if (!response.ok) {
+      throw new Error('Failed to fetch project overview')
+    }
+    const data = await response.json()
+    return data
+  },
+
+  async getProjects(): Promise<Project[]> {
+    const response = await fetch(`${API_BASE}/api/all_projects`)
+    if (!response.ok) {
+      throw new Error('Failed to fetch projects')
+    }
+    const data = await response.json()
+    return data
+  },
+
+  async getProjectContent(projectId: string): Promise<string> {
+    const response = await fetch(`${API_BASE}/api/projects/${projectId}/content`)
+    if (!response.ok) {
+      throw new Error('Failed to fetch project content')
+    }
+    const data = await response.json()
+    return data.content
+  }
 } 

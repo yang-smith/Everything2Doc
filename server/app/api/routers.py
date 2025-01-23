@@ -25,6 +25,16 @@ def create_project():
         current_app.logger.error(f"Error creating project: {str(e)}")
         return jsonify({'error': str(e)}), 500
 
+@bp.route('/all_projects', methods=['GET'])
+def get_all_projects():
+    """获取所有项目"""
+    try:
+        projects = project_service.get_all_projects()
+        return jsonify([project.to_dict() for project in projects])
+    except Exception as e:
+        current_app.logger.error(f"Error getting projects: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
 @bp.route('/projects/<project_id>', methods=['GET'])
 def get_project(project_id):
     """获取项目详情"""
@@ -156,17 +166,15 @@ def get_project_output_content(project_id):
 # Cards相关路由
 @bp.route('/projects/<project_id>/cards', methods=['GET'])
 def get_project_cards(project_id):
-    """分页获取项目的cards"""
+    """获取项目的所有cards"""
     try:
-        page = request.args.get('page', 1, type=int)
-        per_page = request.args.get('per_page', 10, type=int)
+        cards, status = cards_service.get_project_cards(project_id)
         
-        result = cards_service.get_project_cards(
-            project_id=project_id,
-            page=page,
-            per_page=per_page
-        )
-        return jsonify(result)
+        return jsonify({
+            'cards': [card.to_dict() for card in cards],
+            'total': len(cards),
+            'status': status
+        })
         
     except NotFound:
         return jsonify({'error': 'Project not found'}), 404
@@ -193,6 +201,62 @@ def get_project_segments(project_id):
     try:
         segments = cards_service.get_project_segments(project_id)
         return jsonify(segments)
+        
+    except NotFound:
+        return jsonify({'error': 'Project not found'}), 404
+    except Exception as e:
+        current_app.logger.error(f"Error getting segments: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+@bp.route('/segments/<segment_id>/status', methods=['GET'])
+def get_segment_status(segment_id):
+    """获取指定分段的状态"""
+    try:
+        status = cards_service.get_segment_status(segment_id)
+        return jsonify(status)
+    except NotFound:
+        return jsonify({'error': 'Segment not found'}), 404
+    except Exception as e:
+        current_app.logger.error(f"Error getting segment status: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+@bp.route('/segments/<segment_id>/cards')
+def get_segment_cards(segment_id):
+    """获取某个segment下的所有cards"""
+    try:
+        cards = cards_service.get_segment_cards(segment_id)
+        return jsonify({
+            'segment_id': segment_id,
+            'cards': [card.to_dict() for card in cards]
+        })
+        
+    except NotFound:
+        return jsonify({'error': 'Segment not found'}), 404
+    except Exception as e:
+        current_app.logger.error(f"Error getting segment cards: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+@bp.route('/projects/<project_id>/overview', methods=['GET'])
+def get_project_overview(project_id):
+    """获取文档简述"""
+    try:
+        overview = document_service.get_project_overview(project_id)
+        return jsonify(overview)
+        
+    except NotFound:
+        return jsonify({'error': 'Project not found'}), 404
+    except Exception as e:
+        current_app.logger.error(f"Error getting segments: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+@bp.route('/projects/<project_id>/content', methods=['GET'])
+def get_project_content(project_id):
+    """获取文档内容"""
+    try:
+        content = document_service.get_project_content(project_id)
+        return jsonify({
+            'content': content
+        })
         
     except NotFound:
         return jsonify({'error': 'Project not found'}), 404

@@ -8,7 +8,8 @@ from everything2doc import (
     read_file,
     process_segments_to_cards_parallel,
     parse_messages,
-    ai_chat
+    ai_chat,
+    generate_overview
 )
 
 from datetime import datetime, timedelta
@@ -162,9 +163,11 @@ def generate_cards_test(input_file: str, output_file: str = 'output/final_docume
             if not segments:
                 raise ValueError("No chat segments found")
             
-
+            # overview = generate_overview(segments[0], model="meta-llama/llama-3.3-70b-instruct")
+            # print(overview)
+            # return
             # Generate cards in parallel
-            all_cards = process_segments_to_cards_parallel(segments[0:3],model="deepseek-chat", max_workers=20)
+            all_cards = process_segments_to_cards_parallel(segments[0:3],model="google/gemini-flash-1.5-8b", max_workers=20)
             print(all_cards)
             return
             # Combine all cards
@@ -190,5 +193,6 @@ if __name__ == '__main__':
         # generate_community_guide("./examples/ToAnotherCountry/ToAnotherCountry.txt")
         # generate_community_guide("./examples/yucun/DNyucun.txt")
         generate_cards_test("./examples/yucun/DNyucun.txt")
+        
     except Exception as e:
         print(f"Failed to process file: {str(e)}")

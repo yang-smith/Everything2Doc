@@ -7,7 +7,7 @@ from concurrent.futures import ThreadPoolExecutor
 
 db = SQLAlchemy()
 # 创建全局线程池
-thread_pool = ThreadPoolExecutor(max_workers=3)  # 可以根据需要调整worker数量
+thread_pool = ThreadPoolExecutor(max_workers=5)  # 可以根据需要调整worker数量
 
 def create_app(config_class=Config):
     app = Flask(__name__)
