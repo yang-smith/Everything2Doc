@@ -15,12 +15,18 @@ export function ChatContent({ messageId }: { messageId: string }) {
   } = useChatActions()
 
   const projectId = useProjectStore(state => state.currentProjectId)
+  const targetMessageTime = useProjectStore(state => state.uiState.targetMessageTime)
+  const [isReady, setIsReady] = useState(false)
+
   if (!projectId) return null
   const chatState = useChatState(projectId)
 
   useEffect(() => {
-    // 如果已经加载过，直接返回
-    if (chatState?.isLoaded) return
+    // 如果已经加载过，标记为ready
+    if (chatState?.isLoaded) {
+      setIsReady(true)
+      return
+    }
 
     // 加载文件内容
     async function loadContent() {
@@ -28,10 +34,9 @@ export function ChatContent({ messageId }: { messageId: string }) {
         if (!projectId) return
 
         const content = await api.getProjectContent(projectId)
-        console.log(content)
         const messages = parseChatContent(content)
-        console.log(messages)
         setChatMessages(projectId, messages)
+        setIsReady(true)
       } catch (error) {
         console.error('Failed to load chat content:', error)
       }
@@ -40,7 +45,8 @@ export function ChatContent({ messageId }: { messageId: string }) {
     loadContent()
   }, [projectId, chatState?.isLoaded, setChatMessages])
 
-  if (!chatState?.isLoaded) {
+  // 确保组件和消息都准备好后再渲染VirtualMessageList
+  if (!chatState?.isLoaded || !isReady) {
     return <div>Loading...</div>
   }
 
@@ -51,6 +57,7 @@ export function ChatContent({ messageId }: { messageId: string }) {
     >
       <VirtualMessageList
         messages={chatState.messages}
+        key={`${isReady}-${targetMessageTime}`}
       />
     </div>
   )

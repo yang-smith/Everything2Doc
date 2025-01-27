@@ -28,7 +28,7 @@ def _get_client(model: str, is_async: bool = False) -> OpenAI | AsyncOpenAI:
         return client_class(api_key=api_key, base_url=base_url)
     
     # 处理 Deepseek 模型
-    if model == 'deepseek-chat':
+    if model == 'deepseek-chat' or model == 'deepseek-reasoner':
         api_key = os.environ.get("DEEPSEEK_API_KEY")
         base_url = os.environ.get("DEEPSEEK_API_BASE")
         if not api_key or not base_url:

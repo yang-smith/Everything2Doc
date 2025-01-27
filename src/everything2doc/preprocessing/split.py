@@ -1,7 +1,7 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 import re
 import os
-
+from typing import List
 
 def split_chat_records(chat_text, max_messages=500, min_messages=300, time_gap_minutes=100):
     """
@@ -95,3 +95,110 @@ def split_tasks(task_text: str) -> list[str]:
     ]
     
     return parsed_tasks
+
+def split_by_time_period(chat_text: str, period: str = 'day') -> list[str]:
+    """
+    按时间周期分割聊天记录
+    
+    参数:
+    chat_text: 原始聊天记录文本
+    period: 分割周期，可选值：'day', 'week', 'month'
+    
+    返回:
+    list of str: 按时间周期分割后的聊天记录片段列表
+    """
+    # 解析消息
+    pattern = r'(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}) (.*?)(?=\n\d{4}-\d{2}-\d{2}|\Z)'
+    messages = re.findall(pattern, chat_text, re.DOTALL)
+    
+    if not messages:
+        return []
+    
+    # 按时间周期分组
+    segments_dict = {}
+    for timestamp, content in messages:
+        dt = datetime.strptime(timestamp, '%Y-%m-%d %H:%M:%S')
+        
+        # 获取时间周期的key
+        if period == 'day':
+            period_key = dt.replace(hour=0, minute=0, second=0)
+        elif period == 'week':
+            # 获取本周一
+            period_key = dt - timedelta(days=dt.weekday())
+            period_key = period_key.replace(hour=0, minute=0, second=0)
+        elif period == 'month':
+            period_key = dt.replace(day=1, hour=0, minute=0, second=0)
+        else:
+            raise ValueError("period must be one of: 'day', 'week', 'month'")
+            
+        # 添加到对应分组
+        if period_key not in segments_dict:
+            segments_dict[period_key] = []
+        segments_dict[period_key].append((timestamp, content))
+    
+    # 转换为文本片段
+    segments = []
+    for period_key in sorted(segments_dict.keys()):
+        segment = '\n'.join(f"{t} {c}" for t, c in segments_dict[period_key])
+        segments.append(segment)
+    
+    return segments
+
+def limit_text_length(text: str, max_tokens: int = 10000) -> List[str]:
+    """
+    将文本按照token限制分割成多个部分
+    
+    Args:
+        text: 原始文本
+        max_tokens: 每个部分的最大token数量（默认10000）
+    
+    Returns:
+        List[str]: 分割后的文本列表
+    """
+    # 粗略估计：平均每个token约4个字符
+    CHARS_PER_TOKEN = 4
+    max_chars = max_tokens * CHARS_PER_TOKEN
+    
+    if not text:
+        return []
+        
+    if len(text) <= max_chars:
+        return [text]
+        
+    # 按消息分割
+    messages = text.split('\n')
+    
+    # 初始化结果列表和当前块
+    chunks = []
+    current_chunk = []
+    current_length = 0
+    
+    for message in messages:
+        message_length = len(message) + 1  # +1 for newline
+        
+        # 如果当前消息加入后超过限制，保存当前块并开始新块
+        if current_length + message_length > max_chars and current_chunk:
+            chunks.append('\n'.join(current_chunk))
+            current_chunk = []
+            current_length = 0
+            
+        # 处理单条消息超过限制的情况
+        if message_length > max_chars:
+            # 如果当前块非空，先保存
+            if current_chunk:
+                chunks.append('\n'.join(current_chunk))
+                current_chunk = []
+                current_length = 0
+            # 将长消息单独作为一块（可能需要进一步处理）
+            chunks.append(message)
+            continue
+            
+        # 将消息添加到当前块
+        current_chunk.append(message)
+        current_length += message_length
+    
+    # 处理最后一个块
+    if current_chunk:
+        chunks.append('\n'.join(current_chunk))
+    
+    return chunks

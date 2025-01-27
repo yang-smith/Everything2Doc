@@ -21,12 +21,15 @@ interface ProjectState {
   // 新增 UI 状态控制
   uiState: {
     chatVisible: boolean
+    targetMessageTime?: string
   }
   
   // 新增 UI 控制方法
   showChat: () => void
   hideChat: () => void
   toggleChat: () => void
+  scrollToMessage: (timestamp: string) => void
+  clearTargetMessage: () => void
 }
 
 const initialChatState: ChatState = {
@@ -81,7 +84,8 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
   
   // UI 状态初始化
   uiState: {
-    chatVisible: false
+    chatVisible: false,
+    targetMessageTime: undefined,
   },
   
   // UI 控制方法
@@ -104,7 +108,25 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
       ...state.uiState,
       chatVisible: !state.uiState.chatVisible
     }
-  }))
+  })),
+  
+  scrollToMessage: (timestamp: string) => {
+    set(state => ({
+      uiState: {
+        chatVisible: true,
+        targetMessageTime: timestamp
+      }
+    }))
+  },
+  
+  clearTargetMessage: () => {
+    set(state => ({
+      uiState: {
+        ...state.uiState,
+        targetMessageTime: undefined
+      }
+    }))
+  }
 }))
 
 // 便捷的选择器

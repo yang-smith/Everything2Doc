@@ -45,9 +45,11 @@ export function KnowledgeCard({
   const [dialogOpen, setDialogOpen] = React.useState(false)
   const projectId = useProjectStore(state => state.currentProjectId)
   const showChat = useProjectStore(state => state.showChat)
+  const scrollToMessage = useProjectStore(state => state.scrollToMessage)
 
-  const handleJumpToMessage = () => {
-
+  const handleJumpToMessage = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    scrollToMessage(timestamp)
   }
 
   return (
@@ -144,10 +146,7 @@ export function KnowledgeCard({
                   
                   {/* Jump to message button */}
                   <button
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      showChat()
-                    }}
+                    onClick={handleJumpToMessage}
                     className={cn(
                       "flex items-center gap-2 text-xs",
                       "text-muted-foreground/60 hover:text-muted-foreground/80",

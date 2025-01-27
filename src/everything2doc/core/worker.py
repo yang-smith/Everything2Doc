@@ -7,7 +7,7 @@ from tqdm import tqdm
 import os 
 from ..preprocessing.reader import read_file
 from ..preprocessing.split import split_chat_records
-from ..prompt.prompt import PROMPT_GEN_STRUCTURE, PROMPT_GEN_DOC_STRUCTURE, PROMPT_GET_INFO, PROMPT_GEN_END_DOC, PROMPT_EXTRACT_INFO, PROMPT_GEN_OVERVIEW
+from ..prompt.prompt import PROMPT_GEN_STRUCTURE, PROMPT_GEN_DOC_STRUCTURE, PROMPT_GET_INFO, PROMPT_GEN_END_DOC, PROMPT_EXTRACT_INFO, PROMPT_GEN_OVERVIEW, PROMPT_MONTHLY_SUMMARY
 from .gen_structure import gen_structure
 from dataclasses import dataclass
 from typing import List, Optional
@@ -281,6 +281,11 @@ def generate_overview(chat_records: str, model: str = "meta-llama/llama-3.3-70b-
     overview = ai_chat(message=PROMPT_GEN_OVERVIEW.format(chat_records=chat_records), model=model)
     return overview
 
+
+def generate_monthly_summary(chat_records: str, model: str = "deepseek-reasoner"):
+    summary = ai_chat(message=PROMPT_MONTHLY_SUMMARY.format(chat_records=chat_records), model=model)
+    return summary
+
 def test_update_doc():
 
     chat_text = read_file()
@@ -309,6 +314,7 @@ def test_update_doc():
         f.write(cleaned_document)
     
     print(f"文档已保存到: {output_file}")
+
 
 
 
