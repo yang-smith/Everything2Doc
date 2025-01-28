@@ -16,6 +16,7 @@ from .core.worker import (
     process_segments_to_cards_parallel,
     generate_overview,
     generate_monthly_summary,
+    generate_recent_month_summary,
     process_segments_to_cards_single
 )
 
@@ -28,7 +29,7 @@ from .preprocessing import (
     parse_messages
 )
 
-from .utils import ai_chat
+from .utils import ai_chat, ai_chat_stream
 
 # Public API
 __all__ = [
@@ -38,7 +39,8 @@ __all__ = [
     'process_chapters_to_document',
     'merge_chapter_results',
     'generate_monthly_summary',
-    
+    'generate_recent_month_summary',
+
     # Preprocessing
     'read_file',
     'Message',
@@ -50,5 +52,6 @@ __all__ = [
     'process_segments_to_cards_single',
 
     # Utils
-    'ai_chat'
+    'ai_chat',
+    'ai_chat_stream'
 ]

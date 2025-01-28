@@ -6,8 +6,8 @@ import concurrent.futures
 from tqdm import tqdm
 import os 
 from ..preprocessing.reader import read_file
-from ..preprocessing.split import split_chat_records
-from ..prompt.prompt import PROMPT_GEN_STRUCTURE, PROMPT_GEN_DOC_STRUCTURE, PROMPT_GET_INFO, PROMPT_GEN_END_DOC, PROMPT_EXTRACT_INFO, PROMPT_GEN_OVERVIEW, PROMPT_MONTHLY_SUMMARY
+from ..preprocessing.split import split_chat_records, split_by_time_period
+from ..prompt.prompt import PROMPT_GEN_STRUCTURE, PROMPT_GEN_DOC_STRUCTURE, PROMPT_GET_INFO, PROMPT_GEN_END_DOC, PROMPT_EXTRACT_INFO, PROMPT_GEN_OVERVIEW, PROMPT_MONTHLY_SUMMARY, PROMPT_MERGE_SUMMARY
 from .gen_structure import gen_structure
 from dataclasses import dataclass
 from typing import List, Optional
@@ -315,9 +315,150 @@ def test_update_doc():
     
     print(f"文档已保存到: {output_file}")
 
+def limit_text_length(text: str, max_tokens: int = 10000) -> List[str]:
+    """
+    将文本按照token限制分割成多个部分
+    
+    Args:
+        text: 原始文本
+        max_tokens: 每个部分的最大token数量（默认10000）
+    
+    Returns:
+        List[str]: 分割后的文本列表
+    """
+    # 粗略估计：平均每个token约4个字符
+    CHARS_PER_TOKEN = 4
+    max_chars = max_tokens * CHARS_PER_TOKEN
+    
+    if not text:
+        return []
+        
+    if len(text) <= max_chars:
+        return [text]
+        
+    # 按消息分割
+    messages = text.split('\n')
+    
+    # 初始化结果列表和当前块
+    chunks = []
+    current_chunk = []
+    current_length = 0
+    
+    for message in messages:
+        message_length = len(message) + 1  # +1 for newline
+        
+        # 如果当前消息加入后超过限制，保存当前块并开始新块
+        if current_length + message_length > max_chars and current_chunk:
+            chunks.append('\n'.join(current_chunk))
+            current_chunk = []
+            current_length = 0
+            
+        # 处理单条消息超过限制的情况
+        if message_length > max_chars:
+            # 如果当前块非空，先保存
+            if current_chunk:
+                chunks.append('\n'.join(current_chunk))
+                current_chunk = []
+                current_length = 0
+            # 将长消息单独作为一块（可能需要进一步处理）
+            chunks.append(message)
+            continue
+            
+        # 将消息添加到当前块
+        current_chunk.append(message)
+        current_length += message_length
+    
+    # 处理最后一个块
+    if current_chunk:
+        chunks.append('\n'.join(current_chunk))
+    
+    return chunks
 
+def process_chunk_parallel(chunks: List[str], 
+                         model: str = "deepseek-reasoner",
+                         max_workers: int = 10) -> List[str]:
+    """
+    并行处理文本块生成摘要
+    
+    Args:
+        chunks: 文本块列表
+        model: 使用的AI模型
+        max_workers: 最大并行工作线程数
+    
+    Returns:
+        List[str]: 生成的摘要列表
+    """
+    def process_single_chunk(chunk: str, chunk_index: int) -> Optional[str]:
+        try:
+            summary = generate_monthly_summary(chunk, model=model)
+            if not summary or len(summary.strip()) == 0:
+                return None
+            return summary
+        except Exception as e:
+            return None
 
+    summaries = []
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        future_to_chunk = {
+            executor.submit(process_single_chunk, chunk, i): i 
+            for i, chunk in enumerate(chunks)
+        }
+        
+        for future in concurrent.futures.as_completed(future_to_chunk):
+            try:
+                summary = future.result()
+                if summary:
+                    summaries.append(summary)
+            except Exception:
+                continue
+    
+    if not summaries:
+        raise ValueError("No valid summaries generated")
+    
+    return summaries
 
+def generate_recent_month_summary(input_file: str, 
+                                output_file: Optional[str] = None,
+                                model: str = "deepseek-reasoner",
+                                max_tokens: int = 10000) -> str:
+    """
+    生成最近一个月的月度总结
+    
+    Args:
+        input_file: 输入文件路径
+        output_file: 输出文件路径（可选）
+        model: 使用的AI模型
+        max_tokens: 每个块的最大token数量
+    
+    Returns:
+        str: 生成的月度总结
+    """
+    chat_text = read_file(input_file)
+    segments = split_by_time_period(chat_text, 'month')
+    
+    if not segments:
+        raise ValueError("No chat segments found")
+    
+    recent_month_records = segments[-1]
+    if not recent_month_records:
+        raise ValueError("No chat records found in the most recent month")
+    
+    chunks = limit_text_length(recent_month_records, max_tokens=max_tokens)
+    summaries = process_chunk_parallel(chunks, model=model)
+    merged_summary = ai_chat(
+        message=PROMPT_MERGE_SUMMARY.format(summaries='\n'.join(summaries)), 
+        model=model
+    )
+    
+    if not merged_summary or len(merged_summary.strip()) == 0:
+        raise ValueError("Generated merged summary is empty")
+        
+    if output_file:
+        os.makedirs(os.path.dirname(output_file), exist_ok=True)
+        with open(output_file, 'w', encoding='utf-8') as f:
+            f.write(merged_summary)
+    
+    return merged_summary
 
 if __name__ == "__main__":
     

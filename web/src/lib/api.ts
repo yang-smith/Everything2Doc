@@ -225,5 +225,13 @@ export const api = {
     }
     const data = await response.json()
     return data.content
+  },
+
+  createChatStream(message: string) {
+    const eventSource = new EventSource(`${API_BASE}/api/chat/stream?message=${encodeURIComponent(message)}`, {
+      withCredentials: true
+    });
+    
+    return eventSource;
   }
 } 

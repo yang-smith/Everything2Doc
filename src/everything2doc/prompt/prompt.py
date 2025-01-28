@@ -390,8 +390,9 @@ PROMPT_MONTHLY_SUMMARY = """
 
 PROMPT_MERGE_SUMMARY = """
 帮我将下面的多个summary合并成一个summary。
-从读者角度出发
-{summaries}
+从读者角度出发，你的读者是群成员，注意根据群的调性调整文本风格。
+合并的summary内容尽量丰富细节。
 
+{summaries}
 直接输出合并后的summary
 """

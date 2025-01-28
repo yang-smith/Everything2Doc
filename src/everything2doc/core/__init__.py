@@ -8,7 +8,8 @@ from .worker import (
     process_segments_to_cards_parallel,
     generate_overview,
     process_segments_to_cards_single,
-    generate_monthly_summary
+    generate_monthly_summary,
+    generate_recent_month_summary
 )
 
 __all__ = [
@@ -19,5 +20,6 @@ __all__ = [
     'process_segments_to_cards_parallel',
     'generate_overview',
     'process_segments_to_cards_single',
-    'generate_monthly_summary'
+    'generate_monthly_summary',
+    'generate_recent_month_summary'
 ]

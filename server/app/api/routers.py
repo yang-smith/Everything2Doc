@@ -1,8 +1,10 @@
-from flask import Blueprint, request, jsonify, current_app
+from flask import Blueprint, request, jsonify, current_app, Response
 from app.services.project_service import ProjectService
 from app.services.document_service import DocumentService
 from werkzeug.exceptions import BadRequest, NotFound
 from app.services.cards_service import CardsService
+from app.utils.stream_handler import create_sse_response
+from everything2doc import ai_chat_stream
 
 bp = Blueprint('api', __name__)
 project_service = ProjectService()
@@ -262,6 +264,30 @@ def get_project_content(project_id):
         return jsonify({'error': 'Project not found'}), 404
     except Exception as e:
         current_app.logger.error(f"Error getting segments: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+@bp.route('/chat/stream', methods=['GET', 'POST'])
+def stream_chat():
+    """流式聊天接口"""
+    try:
+        if request.method == 'GET':
+            message = request.args.get('message')
+        else:
+            data = request.get_json()
+            message = data.get('message')
+
+        if not message:
+            return jsonify({'error': 'Message is required'}), 400
+
+        # 创建流式响应
+        stream = ai_chat_stream(
+            message=message,
+            model='deepseek-chat'
+        )
+        return create_sse_response(stream, model='deepseek-chat')
+
+    except Exception as e:
+        current_app.logger.error(f"Error in stream chat: {str(e)}")
         return jsonify({'error': str(e)}), 500
 
 # 错误处理

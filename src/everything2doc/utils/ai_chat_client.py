@@ -100,7 +100,10 @@ async def ai_chat_async(message, model="gpt-4o-mini", response_format='NOT_GIVEN
                 else:
                     raise  
 
-def ai_chat(message: str | list, model: str = "gpt-4o-mini", response_format: str = 'NOT_GIVEN', tools: list = None) -> str:
+def ai_chat(message: str | list, 
+            model: str = "gpt-4o-mini", 
+            response_format: str = 'NOT_GIVEN', 
+            tools: list = None) -> str:
     """
     Synchronous chat completion using OpenAI API.
     
@@ -194,3 +197,37 @@ def truncate_list_by_token_size(list_data: list, max_token_size: int) -> list:
         if tokens > max_token_size:
             return list_data[:i]
     return list_data
+
+def ai_chat_stream(message: str | list, 
+                  model: str = "gpt-4o-mini", 
+                  response_format: str = 'NOT_GIVEN',
+                  tools: list = None):
+    """
+    Streaming version of chat completion using OpenAI API.
+    """
+    client = _get_client(model)
+    messages = message if isinstance(message, list) else _prepare_messages(message)
+    
+    kwargs = {
+        "messages": messages,
+        "model": model,
+        "temperature": DEFAULT_TEMPERATURE,
+        "stream": True
+    }
+    
+    if response_format == 'json':
+        kwargs["response_format"] = {"type": "json_object"}
+    
+    if tools:
+        kwargs["tools"] = tools
+        kwargs["tool_choice"] = "auto"
+
+    try:
+        stream = client.chat.completions.create(**kwargs)
+        for chunk in stream:
+            if chunk.choices[0].delta.content is not None:
+                yield chunk.choices[0].delta.content
+    finally:
+        # 确保清理资源
+        if hasattr(client, 'close'):
+            client.close()
