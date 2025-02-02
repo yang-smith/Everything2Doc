@@ -1,4 +1,4 @@
-from everything2doc.utils.ai_chat_client import ai_chat
+from everything2doc.utils.ai_chat_client import ai_chat, ai_chat_stream
 from datetime import datetime
 import re
 from concurrent.futures import ThreadPoolExecutor
@@ -417,7 +417,7 @@ def process_chunk_parallel(chunks: List[str],
     
     return summaries
 
-def generate_recent_month_summary(input_file: str, 
+def generate_recent_month_summary(chat_content: str, 
                                 output_file: Optional[str] = None,
                                 model: str = "deepseek-reasoner",
                                 max_tokens: int = 10000) -> str:
@@ -431,10 +431,9 @@ def generate_recent_month_summary(input_file: str,
         max_tokens: 每个块的最大token数量
     
     Returns:
-        str: 生成的月度总结
+        sream流
     """
-    chat_text = read_file(input_file)
-    segments = split_by_time_period(chat_text, 'month')
+    segments = split_by_time_period(chat_content, 'month')
     
     if not segments:
         raise ValueError("No chat segments found")
@@ -445,20 +444,11 @@ def generate_recent_month_summary(input_file: str,
     
     chunks = limit_text_length(recent_month_records, max_tokens=max_tokens)
     summaries = process_chunk_parallel(chunks, model=model)
-    merged_summary = ai_chat(
+    return ai_chat_stream(
         message=PROMPT_MERGE_SUMMARY.format(summaries='\n'.join(summaries)), 
         model=model
     )
-    
-    if not merged_summary or len(merged_summary.strip()) == 0:
-        raise ValueError("Generated merged summary is empty")
-        
-    if output_file:
-        os.makedirs(os.path.dirname(output_file), exist_ok=True)
-        with open(output_file, 'w', encoding='utf-8') as f:
-            f.write(merged_summary)
-    
-    return merged_summary
+
 
 if __name__ == "__main__":
     

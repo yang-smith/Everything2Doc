@@ -5,28 +5,35 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { api } from '@/lib/api'
 import { ScrollArea } from '@/components/ui/scroll-area'
+import { Progress } from '@/components/ui/progress'
 
 export default function ChatTestPage() {
+  // 聊天相关状态
   const [messages, setMessages] = useState<string[]>([])
   const [input, setInput] = useState('')
   const [isStreaming, setIsStreaming] = useState(false)
-  const scrollRef = useRef<HTMLDivElement>(null)
   
-  // 自动滚动到底部
+  // 月度总结相关状态
+  const [summary, setSummary] = useState('')
+  const [generationProgress, setGenerationProgress] = useState(0)
+  const [isGenerating, setIsGenerating] = useState(false)
+  const [error, setError] = useState('')
+  
+  const scrollRef = useRef<HTMLDivElement>(null)
+
+  // 自动滚动
   useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight
     }
-  }, [messages])
+  }, [messages, summary])
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  // 处理聊天提交
+  const handleChatSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!input.trim() || isStreaming) return
 
-    // 添加用户消息
     setMessages(prev => [...prev, `用户: ${input}`])
-    
-    // 开始流式响应
     setIsStreaming(true)
     let responseText = ''
     
@@ -80,48 +87,131 @@ export default function ChatTestPage() {
       setIsStreaming(false)
       setMessages(prev => [...prev, "错误：无法创建连接"])
     }
-
-    // 清空输入
     setInput('')
   }
 
+  // 新增：处理月度总结生成
+  const handleGenerateSummary = async () => {
+    if (isGenerating) return
+    
+    setIsGenerating(true)
+    setError('')
+    setSummary('')
+    setGenerationProgress(0)
+
+    try {
+      const eventSource = api.createMonthSummaryStream('d44c4112-0987-4a1b-a7e2-1dd2f4f8e55a', {
+        start_date: '2024-06-01',
+        end_date: '2024-06-30'
+      })
+
+      eventSource.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data)
+          
+          if (data.progress) {
+            setGenerationProgress(data.progress)
+          }
+          
+          if (data.content) {
+            setSummary(prev => prev + data.content)
+          }
+          
+          if (data.error) {
+            setError(data.error)
+            eventSource.close()
+          }
+          
+          if (event.data === '[DONE]') {
+            eventSource.close()
+            setIsGenerating(false)
+          }
+        } catch (err) {
+          console.error('Error parsing stream data:', err)
+        }
+      }
+
+      eventSource.onerror = (err) => {
+        console.error('Summary stream error:', err)
+        setError('生成中断，请重试')
+        eventSource.close()
+        setIsGenerating(false)
+      }
+    } catch (err) {
+      console.error('Error starting generation:', err)
+      setError('无法开始生成')
+      setIsGenerating(false)
+    }
+  }
+
   return (
-    <div className="container max-w-2xl mx-auto p-4 space-y-4">
-      <h1 className="text-2xl font-bold">流式聊天测试</h1>
-      
-      {/* 消息显示区域 */}
-      <div className="h-[600px] border rounded-lg bg-background p-4">
-        <ScrollArea ref={scrollRef} className="h-full">
-          <div className="space-y-4">
+    <div className="container max-w-4xl mx-auto p-4 space-y-6">
+      {/* 聊天测试部分 */}
+      <section className="space-y-4">
+        <h2 className="text-xl font-bold">聊天测试</h2>
+        <div className="h-[400px] border rounded-lg bg-background p-4">
+          <ScrollArea ref={scrollRef} className="h-full">
+            <div className="space-y-4">
             {messages.map((msg, index) => (
               <div 
-                key={index}
+                key={`msg-${index}-${msg.slice(0,10)}`} // 添加唯一组合key
                 className="text-sm whitespace-pre-wrap"
               >
                 {msg}
               </div>
             ))}
-            {isStreaming && (
-              <div className="text-muted-foreground animate-pulse">
-                AI正在思考...
-              </div>
+              {isStreaming && (
+                <div className="text-muted-foreground animate-pulse">
+                  AI正在思考...
+                </div>
+              )}
+            </div>
+          </ScrollArea>
+        </div>
+        
+        <form onSubmit={handleChatSubmit} className="flex gap-2">
+          <Input
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            placeholder="输入消息..."
+            disabled={isStreaming}
+          />
+          <Button type="submit" disabled={isStreaming}>
+            发送
+          </Button>
+        </form>
+      </section>
+
+      {/* 新增：月度总结测试部分 */}
+      <section className="space-y-4">
+        <h2 className="text-xl font-bold">月度总结测试</h2>
+        
+        <div className="space-y-2">
+          <div className="flex items-center gap-4">
+            <Button 
+              onClick={handleGenerateSummary}
+              disabled={isGenerating}
+            >
+              {isGenerating ? '生成中...' : '生成月度总结'}
+            </Button>
+            {generationProgress > 0 && (
+              <Progress value={generationProgress} className="w-[200px]" />
             )}
           </div>
-        </ScrollArea>
-      </div>
+          
+          {error && (
+            <div className="text-red-500 text-sm">{error}</div>
+          )}
+        </div>
 
-      {/* 输入区域 */}
-      <form onSubmit={handleSubmit} className="flex gap-2">
-        <Input
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          placeholder="输入消息..."
-          disabled={isStreaming}
-        />
-        <Button type="submit" disabled={isStreaming}>
-          发送
-        </Button>
-      </form>
+        <div className="h-[400px] border rounded-lg bg-background p-4">
+          <ScrollArea className="h-full">
+            <div className="whitespace-pre-wrap text-sm">
+              {summary || (isGenerating && '正在生成总结...')}
+            </div>
+          </ScrollArea>
+        </div>
+      </section>
     </div>
   )
 } 

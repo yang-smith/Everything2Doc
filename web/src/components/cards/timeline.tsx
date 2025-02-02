@@ -111,7 +111,7 @@ export function Timeline({
             <div className="flex items-center gap-2">
               <Clock className="w-4 h-4 text-primary/60" />
               <span className="text-sm text-primary/80">
-                时间范围 {summary.totalTime}
+                 {summary.totalTime}
               </span>
             </div>
 

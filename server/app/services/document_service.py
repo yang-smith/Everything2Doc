@@ -499,3 +499,25 @@ class DocumentService:
         if not document:
             raise NotFound("No input document found for this project")
         return read_file(document.file_path)
+
+    def get_project_chat_content(self, project_id: str) -> str:
+        """获取项目的聊天记录内容"""
+        project = Project.query.get_or_404(project_id)
+        
+        # 获取最新的输入文档
+        input_doc = InputDocument.query.filter_by(
+            project_id=project_id
+        ).order_by(InputDocument.created_at.desc()).first()
+        
+        if not input_doc:
+            raise NotFound("项目没有可用的聊天记录")
+        
+        # 读取文件内容
+        try:
+            with open(input_doc.file_path, 'r', encoding='utf-8') as f:
+                return f.read()
+        except FileNotFoundError:
+            raise NotFound("聊天记录文件不存在")
+        except Exception as e:
+            current_app.logger.error(f"读取文件失败: {str(e)}")
+            raise RuntimeError("无法读取聊天记录文件")

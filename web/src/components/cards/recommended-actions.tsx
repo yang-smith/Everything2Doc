@@ -47,7 +47,7 @@ const actions: Action[] = [
   }
 ]
 
-export function RecommendedActions(props: { projectId: string }) {
+export function RecommendedActions(props: { projectId: string, onActionClick: (actionId: string) => void }) {
   const [hoveredAction, setHoveredAction] = React.useState<string | null>(null)
 
   return (
@@ -55,6 +55,7 @@ export function RecommendedActions(props: { projectId: string }) {
       <div className="flex items-center justify-between mb-6">
         <div>
           <h2 className="text-lg font-medium">推荐操作</h2>
+          <p className="text-sm text-muted-foreground">根据当前项目状态推荐的智能操作</p>
         </div>
       </div>
 
@@ -80,7 +81,9 @@ export function RecommendedActions(props: { projectId: string }) {
                 transition={{ type: 'spring', stiffness: 100, damping: 20 }}
               />
               <button
-                onClick={action.onClick}
+                onClick={() => {
+                  props.onActionClick(action.id)
+                }}
                 className="relative w-full text-left p-4"
               >
                 <div className="flex items-start gap-4">

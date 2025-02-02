@@ -156,8 +156,10 @@ if __name__ == '__main__':
         # generate_community_guide("./examples/yucun/DNyucun.txt")
         # generate_month_document("./examples/yucun/DNyucun.txt")
         # generate_month_document("./examples/ToAnotherCountry/ToAnotherCountry.txt")
+        with open("./examples/ToAnotherCountry/ToAnotherCountry.txt", 'r', encoding='utf-8') as file:
+            chat_content = file.read()
         summary = generate_recent_month_summary(
-            "./examples/yucun/DNyucun.txt",
+            chat_content,
             model="deepseek/deepseek-r1-distill-llama-70b",
             max_tokens=10000
         )

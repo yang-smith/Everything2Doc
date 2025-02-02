@@ -2,6 +2,7 @@ import { Outline } from "@/types/workspace";
 import { OutputDocument } from "@/types/workspace";
 import { Segment, Card, ProjectOverview } from '@/types/type-cards'
 import { Project } from '@/types/workspace'
+import { None } from "framer-motion";
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
 
 export type ProcessingStatus = 'pending' | 'processing' | 'completed' | 'error'
@@ -233,5 +234,23 @@ export const api = {
     });
     
     return eventSource;
-  }
+  }, 
+  createMonthSummaryStream(projectId: string, params: {
+    start_date?: string;
+    end_date?: string;
+  }) {
+    const url = new URL(`${API_BASE}/api/projects/${projectId}/month_summary_stream`);
+    
+    // 添加查询参数
+    if (params.start_date) {
+      url.searchParams.append('start_date', params.start_date);
+    }
+    if (params.end_date) {
+      url.searchParams.append('end_date', params.end_date);
+    }
+
+    return new EventSource(url.toString(), {
+      withCredentials: true
+    });
+  },
 } 

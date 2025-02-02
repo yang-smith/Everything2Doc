@@ -4,7 +4,7 @@ from app.services.document_service import DocumentService
 from werkzeug.exceptions import BadRequest, NotFound
 from app.services.cards_service import CardsService
 from app.utils.stream_handler import create_sse_response
-from everything2doc import ai_chat_stream
+from everything2doc import ai_chat_stream, generate_recent_month_summary
 
 bp = Blueprint('api', __name__)
 project_service = ProjectService()
@@ -289,6 +289,37 @@ def stream_chat():
     except Exception as e:
         current_app.logger.error(f"Error in stream chat: {str(e)}")
         return jsonify({'error': str(e)}), 500
+
+@bp.route('/projects/<project_id>/month_summary_stream', methods=['GET','POST'])
+def stream_month_summary(project_id: str):
+    """流式生成月度总结文档"""
+    try:
+        if request.method == 'GET':
+            message = request.args.get('message')
+        else:
+            data = request.get_json() or {}
+            start_date = data.get('start_date')
+            end_date = data.get('end_date')
+        
+        # 获取项目聊天内容
+        chat_content = document_service.get_project_chat_content(project_id)
+        
+        # 创建生成器流
+        stream = generate_recent_month_summary(
+            chat_content=chat_content,
+            model="deepseek/deepseek-r1-distill-llama-70b"
+        )
+        
+        # 创建SSE响应
+        return create_sse_response(stream, model='deepseek/deepseek-r1-distill-llama-70b')
+        
+    except NotFound as e:
+        return jsonify({'error': str(e)}), 404
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 400
+    except Exception as e:
+        current_app.logger.error(f"流式生成失败: {str(e)}")
+        return jsonify({'error': '内部服务器错误'}), 500
 
 # 错误处理
 @bp.errorhandler(404)

@@ -9,12 +9,86 @@ import { UploadDialog } from '@/components/workspace/upload-dialog'
 import { Plus, FileUp, X } from 'lucide-react'
 import { useState } from 'react'
 import { AnimatePresence, motion } from "framer-motion"
+import { DocumentViewer } from '@/components/cards/document-viewer'
+import { api } from '@/lib/api'
 
 export default function Page() {
   const currentProjectId = useProjectStore(state => state.currentProjectId)
   const [uploadOpen, setUploadOpen] = useState(false)
   const chatVisible = useProjectStore(state => state.uiState.chatVisible)
   const hideChat = useProjectStore(state => state.hideChat)
+  const [documentContent, setDocumentContent] = useState<{
+    content: string
+    isLoading: boolean
+    error?: string
+  }>({ content: '', isLoading: false })
+
+  const handleStreamDocument = async (actionId: string) => {
+    setDocumentContent({ content: '', isLoading: true, error: undefined })
+    
+    try {
+      if(currentProjectId){
+        const eventSource = api.createMonthSummaryStream(currentProjectId, {
+          start_date: '2024-06-01',
+          end_date: '2024-06-30'
+        })
+        setDocumentContent(prev => ({
+          ...prev,
+          content: 'running',
+          isLoading: true
+        }))
+        eventSource.onmessage = (event) => {
+          try {
+            const data = JSON.parse(event.data)
+            
+            if (data.content) {
+              setDocumentContent(prev => ({
+                ...prev,
+                content: prev.content + data.content,
+                isLoading: true
+              }))
+              
+              setTimeout(() => {
+                const viewer = document.querySelector('.document-viewer-content')
+                if (viewer) {
+                  viewer.scrollTop = viewer.scrollHeight
+                }
+              }, 0)
+            }
+            
+            if (data.error) {
+              setDocumentContent(prev => ({
+                content: prev.content,
+                isLoading: false,
+                error: data.error
+              }))
+              eventSource.close()
+            }
+            
+            if (event.data === '[DONE]') {
+              setDocumentContent(prev => ({ ...prev, isLoading: false }))
+              eventSource.close()
+            }
+          } catch (err) {
+            console.error('流数据解析错误:', err)
+          }
+        }
+        
+        eventSource.onerror = (err) => {
+          console.error('文档流错误:', err)
+          setDocumentContent(prev => ({
+            content: prev.content,
+            isLoading: false,
+            error: '连接中断，请重试'
+          }))
+          eventSource.close()
+        }
+    }
+    } catch (err) {
+      console.error('创建流失败:', err)
+      setDocumentContent({ content: '', isLoading: false, error: '无法启动生成' })
+    }
+  }
 
   if (!currentProjectId) {
     return (
@@ -55,12 +129,26 @@ export default function Page() {
 
       {/* 右侧内容区 - 添加 relative 定位 */}
       <div className="flex-1 min-w-0 relative flex flex-col rounded-lg bg-card border shadow-sm ml-4">
-        {/* 基础层：推荐操作 */}
-        {!chatVisible && (
-          <main className="flex-1 overflow-auto">
-            <RecommendedActions projectId={currentProjectId} />
-          </main>
-        )}
+<AnimatePresence mode='wait'>
+  {documentContent.content ? (
+    <DocumentViewer
+      key="document-viewer" // 添加唯一key
+      content={documentContent.content}
+      isLoading={documentContent.isLoading}
+      onBack={() => setDocumentContent({ content: '', isLoading: false })}
+    />
+  ) : !chatVisible ? (
+    <main 
+      key="recommended-actions" // 添加唯一key
+      className="flex-1 overflow-auto"
+    >
+      <RecommendedActions
+        projectId={currentProjectId}
+        onActionClick={handleStreamDocument}
+      />
+    </main>
+  ) : null}
+</AnimatePresence>
 
         {/* 覆盖层：聊天内容 */}
         <AnimatePresence>
