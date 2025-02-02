@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+// import { shallow } from 'zustand/shallow'
 import { ChatMessage } from '@/lib/chat-parser'
 
 interface ChatState {
@@ -18,13 +19,11 @@ interface ProjectState {
   setChatError: (projectId: string, error: string) => void
   getChatState: (projectId: string) => ChatState | undefined
   
-  // 新增 UI 状态控制
   uiState: {
     chatVisible: boolean
     targetMessageTime?: string
   }
   
-  // 新增 UI 控制方法
   showChat: () => void
   hideChat: () => void
   toggleChat: () => void

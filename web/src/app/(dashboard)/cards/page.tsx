@@ -7,7 +7,7 @@ import { useProjectStore } from '@/stores/project'
 import { Button } from '@/components/ui/button'
 import { UploadDialog } from '@/components/workspace/upload-dialog'
 import { Plus, FileUp, X } from 'lucide-react'
-import { useState } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import { AnimatePresence, motion } from "framer-motion"
 import { DocumentViewer } from '@/components/cards/document-viewer'
 import { api } from '@/lib/api'
@@ -22,6 +22,8 @@ export default function Page() {
     isLoading: boolean
     error?: string
   }>({ content: '', isLoading: false })
+  const [leftWidth, setLeftWidth] = useState('55%')
+  const [isDragging, setIsDragging] = useState(false)
 
   const handleStreamDocument = async (actionId: string) => {
     setDocumentContent({ content: '', isLoading: true, error: undefined })
@@ -34,7 +36,7 @@ export default function Page() {
         })
         setDocumentContent(prev => ({
           ...prev,
-          content: 'running',
+          content: ' ',
           isLoading: true
         }))
         eventSource.onmessage = (event) => {
@@ -90,6 +92,33 @@ export default function Page() {
     }
   }
 
+  const handleMouseDown = useCallback(() => {
+    setIsDragging(true)
+  }, [])
+
+  const handleMouseMove = useCallback((e: MouseEvent) => {
+    if (!isDragging) return
+    const container = document.querySelector('.cards-container')
+    if (container) {
+      const { left, width } = container.getBoundingClientRect()
+      const newWidth = ((e.clientX - left) / width * 100).toFixed(2) + '%'
+      setLeftWidth(newWidth)
+    }
+  }, [isDragging])
+
+  const handleMouseUp = useCallback(() => {
+    setIsDragging(false)
+  }, [])
+
+  useEffect(() => {
+    document.addEventListener('mousemove', handleMouseMove)
+    document.addEventListener('mouseup', handleMouseUp)
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove)
+      document.removeEventListener('mouseup', handleMouseUp)
+    }
+  }, [handleMouseMove, handleMouseUp])
+
   if (!currentProjectId) {
     return (
       <div className="flex-1 flex items-center justify-center min-h-screen">
@@ -119,12 +148,19 @@ export default function Page() {
   }
 
   return (
-    <div className="flex h-[calc(100vh-theme(spacing.16))]">
+    <div className="flex h-[calc(100vh-theme(spacing.16))] cards-container">
       {/* 左侧时间线 */}
-      <div className="w-[55%] min-w-[400px] flex flex-col rounded-lg bg-card border shadow-sm">
+      <div 
+        className="relative flex flex-col rounded-lg bg-card border shadow-sm"
+        style={{ width: leftWidth, minWidth: '400px' }}
+      >
         <div className="flex-1 overflow-auto">
           <Timeline projectId={currentProjectId} />
         </div>
+        <div 
+          className="absolute -right-2 top-0 bottom-0 w-1 cursor-col-resize z-20 hover:bg-primary/30 active:bg-primary/50"
+          onMouseDown={handleMouseDown}
+        />
       </div>
 
       {/* 右侧内容区 - 添加 relative 定位 */}
