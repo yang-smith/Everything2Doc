@@ -210,6 +210,34 @@ export const api = {
     return data
   },
 
+  async getProjectRecommendation(projectId: string): Promise<string[]> {
+    const response = await fetch(`${API_BASE}/api/projects/${projectId}/recommendation`);
+    if (!response.ok) {
+      throw new Error('Failed to fetch project recommendation');
+    }
+    const rawData = await response.json();
+
+    const recommendations = Array.isArray(rawData) ? rawData : [rawData];
+
+    const decodeUnicode = (str: string) => 
+      str.replace(/\\u([\dA-Fa-f]{4})/g, (_, grp) => 
+        String.fromCharCode(parseInt(grp, 16))
+      );
+
+    const result =  recommendations
+      .flatMap((item: string) => 
+        decodeUnicode(item)
+          .split('\n')
+          .map(line => line
+            .replace(/^[\d\u4e00-\u9fa5]+[、.．]\s*/, '')
+            .trim()
+          )
+          .filter(line => line.length > 0)
+      )
+      .slice(1, 4);
+    return result;
+  },
+
   async getProjects(): Promise<Project[]> {
     const response = await fetch(`${API_BASE}/api/all_projects`)
     if (!response.ok) {

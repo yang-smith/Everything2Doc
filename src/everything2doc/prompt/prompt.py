@@ -396,3 +396,19 @@ PROMPT_MERGE_SUMMARY = """
 {summaries}
 直接输出合并后的summary
 """
+
+PROMPT_GEN_RECOMMENDATIONS = """
+你是一位专业的文档策略分析师，请根据群聊特征推荐最适合生成的3个文档类型（直接输出名称）：
+
+# 推荐规则
+1. 基于聊天记录中的实际内容
+2. 揣摩用户需求
+3. 排除聊天记录中未涉及的主题
+
+# 输出格式
+<recommendations>
+1. [文档类型1]
+2. [文档类型2]
+3. [文档类型3]
+</recommendations>
+"""

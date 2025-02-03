@@ -11,6 +11,7 @@ from everything2doc import (
     parse_messages,
     ai_chat,
     generate_overview,
+    generate_recommendation,
     generate_monthly_summary,
     generate_recent_month_summary
 )
@@ -158,11 +159,19 @@ if __name__ == '__main__':
         # generate_month_document("./examples/ToAnotherCountry/ToAnotherCountry.txt")
         with open("./examples/ToAnotherCountry/ToAnotherCountry.txt", 'r', encoding='utf-8') as file:
             chat_content = file.read()
-        summary = generate_recent_month_summary(
-            chat_content,
-            model="deepseek/deepseek-r1-distill-llama-70b",
-            max_tokens=10000
-        )
-        print(summary)        
+        # summary = generate_recent_month_summary(
+        #     chat_content,
+        #     model="deepseek/deepseek-r1-distill-llama-70b",
+        #     max_tokens=10000
+        # )
+        # print(summary)   
+        segments = split_chat_records(
+                chat_content, 
+                max_messages=1000, 
+                min_messages=800, 
+                time_gap_minutes=100
+            )
+        rec = generate_recommendation(segments[0])
+        print(rec)
     except Exception as e:
         print(f"Failed to process file: {str(e)}")

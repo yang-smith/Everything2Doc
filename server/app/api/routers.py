@@ -251,6 +251,19 @@ def get_project_overview(project_id):
         current_app.logger.error(f"Error getting segments: {str(e)}")
         return jsonify({'error': str(e)}), 500
 
+@bp.route('/projects/<project_id>/recommendation', methods=['GET'])
+def get_project_recommendation(project_id):
+    """获取推荐选项"""
+    try:
+        recommendation = document_service.gen_recommendation(project_id)
+        return jsonify(recommendation)
+        
+    except NotFound:
+        return jsonify({'error': 'Project not found'}), 404
+    except Exception as e:
+        current_app.logger.error(f"Error getting segments: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
 @bp.route('/projects/<project_id>/content', methods=['GET'])
 def get_project_content(project_id):
     """获取文档内容"""

@@ -7,6 +7,7 @@ from .worker import (
     merge_chapter_results,
     process_segments_to_cards_parallel,
     generate_overview,
+    generate_recommendation,
     process_segments_to_cards_single,
     generate_monthly_summary,
     generate_recent_month_summary
@@ -19,6 +20,7 @@ __all__ = [
     'merge_chapter_results',
     'process_segments_to_cards_parallel',
     'generate_overview',
+    'generate_recommendation',
     'process_segments_to_cards_single',
     'generate_monthly_summary',
     'generate_recent_month_summary'

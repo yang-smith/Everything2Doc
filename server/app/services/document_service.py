@@ -12,7 +12,8 @@ from everything2doc import (
     process_chapters_to_document,
     merge_chapter_results,
     read_file,
-    generate_overview
+    generate_overview,
+    generate_recommendation
 )
 import os
 from flask import current_app
@@ -521,3 +522,16 @@ class DocumentService:
         except Exception as e:
             current_app.logger.error(f"读取文件失败: {str(e)}")
             raise RuntimeError("无法读取聊天记录文件")
+    
+    def gen_recommendation(self, project_id: str):
+        document = InputDocument.query.filter_by(project_id=project_id).first()
+        if document.overview:
+            rec = generate_recommendation(document.overview)
+        else:
+            chat_segment = ChatSegment.query.filter_by(project_id=project_id)\
+                .order_by(ChatSegment.start_time.desc()).first()
+            if not chat_segment:
+                raise ValueError("No available chat content for recommendation")
+            
+            rec = generate_recommendation(chat_segment.content)
+        return rec

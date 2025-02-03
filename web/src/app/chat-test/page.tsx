@@ -19,6 +19,11 @@ export default function ChatTestPage() {
   const [isGenerating, setIsGenerating] = useState(false)
   const [error, setError] = useState('')
   
+  // 新增推荐相关状态
+  const [recommendations, setRecommendations] = useState<string[]>([])
+  const [loadingRecommendations, setLoadingRecommendations] = useState(false)
+  const [recommendationError, setRecommendationError] = useState('')
+  
   const scrollRef = useRef<HTMLDivElement>(null)
 
   // 自动滚动
@@ -144,6 +149,22 @@ export default function ChatTestPage() {
     }
   }
 
+  // 新增：获取推荐处理
+  const handleGetRecommendations = async () => {
+    setLoadingRecommendations(true)
+    setRecommendationError('')
+    try {
+      const projectId = 'd44c4112-0987-4a1b-a7e2-1dd2f4f8e55a' // 测试用项目ID
+      const result = await api.getProjectRecommendation(projectId)
+      setRecommendations(result)
+      console.log(result)
+    } catch (err) {
+      setRecommendationError(err instanceof Error ? err.message : '获取推荐失败')
+    } finally {
+      setLoadingRecommendations(false)
+    }
+  }
+
   return (
     <div className="container max-w-4xl mx-auto p-4 space-y-6">
       {/* 聊天测试部分 */}
@@ -208,6 +229,46 @@ export default function ChatTestPage() {
           <ScrollArea className="h-full">
             <div className="whitespace-pre-wrap text-sm">
               {summary || (isGenerating && '正在生成总结...')}
+            </div>
+          </ScrollArea>
+        </div>
+      </section>
+
+      {/* 新增：推荐测试部分 */}
+      <section className="space-y-4">
+        <h2 className="text-xl font-bold">推荐测试</h2>
+        
+        <div className="space-y-2">
+          <div className="flex items-center gap-4">
+            <Button 
+              onClick={handleGetRecommendations}
+              disabled={loadingRecommendations}
+            >
+              {loadingRecommendations ? '获取中...' : '获取推荐'}
+            </Button>
+          </div>
+          
+          {recommendationError && (
+            <div className="text-red-500 text-sm">{recommendationError}</div>
+          )}
+        </div>
+
+        <div className="h-[300px] border rounded-lg bg-background p-4">
+          <ScrollArea className="h-full">
+            <div className="space-y-2 text-sm">
+              {recommendations.map((item, index) => (
+                <div 
+                  key={`rec-${index}-${item.slice(0,10)}`}
+                  className="p-2 rounded bg-muted/50"
+                >
+                  {item}
+                </div>
+              ))}
+              {loadingRecommendations && (
+                <div className="text-muted-foreground animate-pulse">
+                  正在加载推荐...
+                </div>
+              )}
             </div>
           </ScrollArea>
         </div>

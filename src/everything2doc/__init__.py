@@ -15,6 +15,7 @@ from .core.worker import (
     merge_chapter_results,
     process_segments_to_cards_parallel,
     generate_overview,
+    generate_recommendation,
     generate_monthly_summary,
     generate_recent_month_summary,
     process_segments_to_cards_single
@@ -38,6 +39,7 @@ __all__ = [
     'process_segments_parallel',
     'process_chapters_to_document',
     'merge_chapter_results',
+    'generate_recommendation',
     'generate_monthly_summary',
     'generate_recent_month_summary',
 
