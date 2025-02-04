@@ -10,7 +10,8 @@ from .worker import (
     generate_recommendation,
     process_segments_to_cards_single,
     generate_monthly_summary,
-    generate_recent_month_summary
+    generate_recent_month_summary,
+    generate_doc
 )
 
 __all__ = [
@@ -23,5 +24,6 @@ __all__ = [
     'generate_recommendation',
     'process_segments_to_cards_single',
     'generate_monthly_summary',
+    'generate_doc',
     'generate_recent_month_summary'
 ]
