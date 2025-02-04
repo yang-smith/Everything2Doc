@@ -281,4 +281,12 @@ export const api = {
       withCredentials: true
     });
   },
+
+  createDocStream(projectId: string, docType: string): EventSource {
+    const encodedDocType = encodeURIComponent(docType);
+    const eventSource = new EventSource(
+      `${API_BASE}/api/projects/${projectId}/doc_stream?doc_type=${encodedDocType}`
+    );
+    return eventSource;
+  },
 } 

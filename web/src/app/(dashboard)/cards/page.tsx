@@ -40,8 +40,7 @@ export default function Page() {
           })
         }
         else{
-          console.log('actionTitle', actionTitle)
-          return
+          eventSource = api.createDocStream(currentProjectId, actionTitle)
         }
 
         setDocumentContent(prev => ({
@@ -196,14 +195,18 @@ export default function Page() {
         <AnimatePresence mode='wait'>
           {documentContent.content ? (
             <DocumentViewer
-              key="document-viewer" // 添加唯一key
+              key="document-viewer"
               content={documentContent.content}
               isLoading={documentContent.isLoading}
               onBack={() => setDocumentContent({ content: '', isLoading: false })}
+              onContentChange={(newContent) => setDocumentContent(prev => ({
+                ...prev,
+                content: newContent
+              }))}
             />
           ) : !chatVisible ? (
             <main 
-              key="recommended-actions" // 添加唯一key
+              key="recommended-actions"
               className="flex-1 overflow-auto"
             >
               <RecommendedActions

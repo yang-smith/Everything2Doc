@@ -17,6 +17,7 @@ from .core.worker import (
     generate_overview,
     generate_recommendation,
     generate_monthly_summary,
+    generate_doc,
     generate_recent_month_summary,
     process_segments_to_cards_single
 )
@@ -42,6 +43,7 @@ __all__ = [
     'generate_recommendation',
     'generate_monthly_summary',
     'generate_recent_month_summary',
+    'generate_doc',
 
     # Preprocessing
     'read_file',

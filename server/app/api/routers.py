@@ -4,7 +4,7 @@ from app.services.document_service import DocumentService
 from werkzeug.exceptions import BadRequest, NotFound
 from app.services.cards_service import CardsService
 from app.utils.stream_handler import create_sse_response
-from everything2doc import ai_chat_stream, generate_recent_month_summary
+from everything2doc import ai_chat_stream, generate_recent_month_summary, generate_doc
 
 bp = Blueprint('api', __name__)
 project_service = ProjectService()
@@ -326,6 +326,47 @@ def stream_month_summary(project_id: str):
         # 创建SSE响应
         return create_sse_response(stream, model='deepseek/deepseek-r1-distill-llama-70b')
         
+    except NotFound as e:
+        return jsonify({'error': str(e)}), 404
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 400
+    except Exception as e:
+        current_app.logger.error(f"流式生成失败: {str(e)}")
+        return jsonify({'error': '内部服务器错误'}), 500
+
+@bp.route('/projects/<project_id>/doc_stream', methods=['GET','POST'])
+def stream_doc(project_id: str):
+    """流式生成文档"""
+    try:
+        if request.method == 'GET':
+            doc_type = request.args.get('doc_type')
+        else:
+            data = request.get_json() or {}
+            doc_type = data.get('doc_type')
+        
+        current_app.logger.info(f"收到文档生成请求: doc_type={doc_type}")
+        
+        chat_content = document_service.get_project_chat_content(project_id)
+        if not chat_content:
+            raise ValueError("未找到聊天记录")
+            
+        current_app.logger.info(f"获取到聊天记录，长度: {len(chat_content)}")
+        
+        try:
+            # 创建生成器流
+            stream = generate_doc(
+                chat_records=chat_content,
+                doc_type=doc_type,
+                model="deepseek/deepseek-r1-distill-llama-70b"
+            )
+            
+            # 创建SSE响应
+            return create_sse_response(stream, model='deepseek/deepseek-r1-distill-llama-70b')
+            
+        except Exception as e:
+            current_app.logger.error(f"生成文档失败: {str(e)}")
+            raise ValueError(f"生成文档失败: {str(e)}")
+            
     except NotFound as e:
         return jsonify({'error': str(e)}), 404
     except ValueError as e:

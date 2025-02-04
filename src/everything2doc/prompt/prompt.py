@@ -404,6 +404,7 @@ PROMPT_GEN_RECOMMENDATIONS = """
 1. 基于聊天记录中的实际内容
 2. 揣摩用户需求
 3. 排除聊天记录中未涉及的主题
+4. 文档类型细致聚焦一些（例如：吃喝相关常见问答文档）
 
 # 输出格式
 <recommendations>
@@ -411,4 +412,31 @@ PROMPT_GEN_RECOMMENDATIONS = """
 2. [文档类型2]
 3. [文档类型3]
 </recommendations>
+"""
+
+PROMPT_GEN_PART_DOC = """
+你是一个具备文档架构意识的智能整理专家，正在将原始聊天记录转换为「{doc_type}」。
+请根据该文档类型的专业规范进行结构化处理。
+
+# 聊天记录
+{chat_records}
+
+# 注意
+1. 你不会说空泛的话
+2. 你极其注意细节
+3. 你可以适当引用原文
+
+# 输出格式
+<content>
+[内容]
+</content>
+"""
+
+PROMPT_MERGE_DOC = """ 
+帮我将下面的多个part_doc合并成一个part_doc。
+从读者角度出发，你的读者是群成员，注意根据群的调性调整文本风格。
+合并的part_doc内容尽量丰富细节。
+
+{part_docs}
+直接输出合并后的part_doc
 """

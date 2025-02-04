@@ -13,7 +13,8 @@ from everything2doc import (
     generate_overview,
     generate_recommendation,
     generate_monthly_summary,
-    generate_recent_month_summary
+    generate_recent_month_summary,
+    generate_doc
 )
 
 from datetime import datetime, timedelta
@@ -171,7 +172,7 @@ if __name__ == '__main__':
                 min_messages=800, 
                 time_gap_minutes=100
             )
-        rec = generate_recommendation(segments[0])
+        rec = generate_doc(chat_content, "需求分析", model="deepseek/deepseek-r1-distill-llama-70b")
         print(rec)
     except Exception as e:
         print(f"Failed to process file: {str(e)}")

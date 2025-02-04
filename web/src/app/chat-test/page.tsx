@@ -6,6 +6,32 @@ import { Input } from '@/components/ui/input'
 import { api } from '@/lib/api'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Progress } from '@/components/ui/progress'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+
+const DOC_TYPES = [
+  {
+    value: 'meeting_minutes',
+    label: '会议纪要'
+  },
+  {
+    value: 'project_summary',
+    label: '项目总结'
+  },
+  {
+    value: '需求文档',
+    label: '需求文档'
+  },
+  {
+    value: 'tech_proposal',
+    label: '技术方案'
+  },
+  {
+    value: 'issue_record',
+    label: '问题记录'
+  }
+] as const
+
+type DocType = typeof DOC_TYPES[number]['value']
 
 export default function ChatTestPage() {
   // 聊天相关状态
@@ -23,6 +49,14 @@ export default function ChatTestPage() {
   const [recommendations, setRecommendations] = useState<string[]>([])
   const [loadingRecommendations, setLoadingRecommendations] = useState(false)
   const [recommendationError, setRecommendationError] = useState('')
+  
+  // 新增文档生成相关状态
+  const [docContent, setDocContent] = useState('')
+  const [docProgress, setDocProgress] = useState(0)
+  const [isGeneratingDoc, setIsGeneratingDoc] = useState(false)
+  const [docError, setDocError] = useState('')
+  
+  const [selectedDocType, setSelectedDocType] = useState<DocType>('meeting_minutes')
   
   const scrollRef = useRef<HTMLDivElement>(null)
 
@@ -165,6 +199,60 @@ export default function ChatTestPage() {
     }
   }
 
+  // 新增：处理文档生成
+  const handleGenerateDoc = async () => {
+    if (isGeneratingDoc) return
+    
+    setIsGeneratingDoc(true)
+    setDocError('')
+    setDocContent('')
+    setDocProgress(0)
+
+    try {
+      const eventSource = api.createDocStream(
+        'd44c4112-0987-4a1b-a7e2-1dd2f4f8e55a', 
+        selectedDocType
+      )
+
+      eventSource.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data)
+          
+          if (data.progress) {
+            setDocProgress(data.progress)
+          }
+          
+          if (data.content) {
+            setDocContent(prev => prev + data.content)
+          }
+          
+          if (data.error) {
+            setDocError(data.error)
+            eventSource.close()
+          }
+          
+          if (event.data === '[DONE]') {
+            eventSource.close()
+            setIsGeneratingDoc(false)
+          }
+        } catch (err) {
+          console.error('Error parsing stream data:', err)
+        }
+      }
+
+      eventSource.onerror = (err) => {
+        console.error('Doc stream error:', err)
+        setDocError('生成中断，请重试')
+        eventSource.close()
+        setIsGeneratingDoc(false)
+      }
+    } catch (err) {
+      console.error('Error starting generation:', err)
+      setDocError('无法开始生成')
+      setIsGeneratingDoc(false)
+    }
+  }
+
   return (
     <div className="container max-w-4xl mx-auto p-4 space-y-6">
       {/* 聊天测试部分 */}
@@ -269,6 +357,55 @@ export default function ChatTestPage() {
                   正在加载推荐...
                 </div>
               )}
+            </div>
+          </ScrollArea>
+        </div>
+      </section>
+
+      {/* 简化的文档生成测试部分 */}
+      <section className="space-y-4">
+        <h2 className="text-xl font-bold">文档生成测试</h2>
+        
+        <div className="space-y-2">
+          <div className="flex items-center gap-4">
+            <Select
+              value={selectedDocType}
+              onValueChange={(value: DocType) => setSelectedDocType(value)}
+            >
+              <SelectTrigger className="w-[180px]">
+                <SelectValue placeholder="选择文档类型" />
+              </SelectTrigger>
+              <SelectContent>
+                {DOC_TYPES.map(({ value, label }) => (
+                  <SelectItem key={value} value={value}>
+                    {label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            
+            <Button 
+              onClick={handleGenerateDoc}
+              disabled={isGeneratingDoc}
+              className="min-w-[120px]"
+            >
+              {isGeneratingDoc ? '生成中...' : '生成文档'}
+            </Button>
+            
+            {docProgress > 0 && (
+              <Progress value={docProgress} className="w-[200px]" />
+            )}
+          </div>
+          
+          {docError && (
+            <div className="text-red-500 text-sm">{docError}</div>
+          )}
+        </div>
+
+        <div className="h-[400px] border rounded-lg bg-background p-4">
+          <ScrollArea className="h-full">
+            <div className="whitespace-pre-wrap text-sm">
+              {docContent || (isGeneratingDoc && '正在生成文档...')}
             </div>
           </ScrollArea>
         </div>

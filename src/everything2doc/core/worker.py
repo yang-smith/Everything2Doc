@@ -7,7 +7,7 @@ from tqdm import tqdm
 import os 
 from ..preprocessing.reader import read_file
 from ..preprocessing.split import split_chat_records, split_by_time_period
-from ..prompt.prompt import PROMPT_GEN_STRUCTURE, PROMPT_GEN_DOC_STRUCTURE, PROMPT_GET_INFO, PROMPT_GEN_END_DOC, PROMPT_EXTRACT_INFO, PROMPT_GEN_OVERVIEW, PROMPT_MONTHLY_SUMMARY, PROMPT_MERGE_SUMMARY, PROMPT_GEN_RECOMMENDATIONS
+from ..prompt.prompt import PROMPT_GEN_STRUCTURE, PROMPT_GEN_DOC_STRUCTURE, PROMPT_GET_INFO, PROMPT_GEN_END_DOC, PROMPT_EXTRACT_INFO, PROMPT_GEN_OVERVIEW, PROMPT_MONTHLY_SUMMARY, PROMPT_MERGE_SUMMARY, PROMPT_GEN_RECOMMENDATIONS, PROMPT_GEN_PART_DOC, PROMPT_MERGE_DOC
 from .gen_structure import gen_structure
 from dataclasses import dataclass
 from typing import List, Optional
@@ -289,6 +289,10 @@ def generate_monthly_summary(chat_records: str, model: str = "deepseek-reasoner"
     summary = ai_chat(message=PROMPT_MONTHLY_SUMMARY.format(chat_records=chat_records), model=model)
     return summary
 
+def generate_part_doc(chat_records: str, doc_type: str, model: str = "deepseek-reasoner"):
+    part_doc = ai_chat(message=PROMPT_GEN_PART_DOC.format(chat_records=chat_records, doc_type=doc_type), model=model)
+    return part_doc
+
 def test_update_doc():
 
     chat_text = read_file()
@@ -379,7 +383,8 @@ def limit_text_length(text: str, max_tokens: int = 10000) -> List[str]:
 
 def process_chunk_parallel(chunks: List[str], 
                          model: str = "deepseek-reasoner",
-                         max_workers: int = 10) -> List[str]:
+                         max_workers: int = 10,
+                         doc_type: str = "recent_month_summary") -> List[str]:
     """
     并行处理文本块生成摘要
     
@@ -391,9 +396,12 @@ def process_chunk_parallel(chunks: List[str],
     Returns:
         List[str]: 生成的摘要列表
     """
-    def process_single_chunk(chunk: str, chunk_index: int) -> Optional[str]:
+    def process_single_chunk(chunk: str, chunk_index: int, doc_type: str, model: str) -> Optional[str]:
         try:
-            summary = generate_monthly_summary(chunk, model=model)
+            if doc_type == "recent_month_summary":
+                summary = generate_monthly_summary(chunk, model=model)
+            else:
+                summary = generate_part_doc(chunk, doc_type, model=model)
             if not summary or len(summary.strip()) == 0:
                 return None
             return summary
@@ -403,10 +411,10 @@ def process_chunk_parallel(chunks: List[str],
     summaries = []
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
         future_to_chunk = {
-            executor.submit(process_single_chunk, chunk, i): i 
+            executor.submit(process_single_chunk, chunk, i, doc_type, model): i 
             for i, chunk in enumerate(chunks)
         }
-        
+
         for future in concurrent.futures.as_completed(future_to_chunk):
             try:
                 summary = future.result()
@@ -446,12 +454,23 @@ def generate_recent_month_summary(chat_content: str,
         raise ValueError("No chat records found in the most recent month")
     
     chunks = limit_text_length(recent_month_records, max_tokens=max_tokens)
-    summaries = process_chunk_parallel(chunks, model=model)
+    summaries = process_chunk_parallel(chunks, model=model, doc_type="recent_month_summary")
     return ai_chat_stream(
         message=PROMPT_MERGE_SUMMARY.format(summaries='\n'.join(summaries)), 
         model=model
     )
 
+def generate_doc(chat_records: str, doc_type: str, model: str = "deepseek-reasoner"):
+    segments = split_chat_records(chat_records, 
+                                max_messages=1300, 
+                                min_messages=1000, 
+                                time_gap_minutes=100)
+    part_docs = process_chunk_parallel(segments, model=model, doc_type=doc_type)
+    print(part_docs)
+    return ai_chat_stream(
+        message=PROMPT_MERGE_DOC.format(part_docs='\n'.join(part_docs)), 
+        model=model
+    )
 
 if __name__ == "__main__":
     
