@@ -38,9 +38,6 @@ dependencies:
   '@tiptap/starter-kit':
     specifier: ^2.11.5
     version: 2.11.5
-  '@types/lodash':
-    specifier: ^4.17.14
-    version: 4.17.15
   class-variance-authority:
     specifier: ^0.7.1
     version: 0.7.1
@@ -109,6 +106,9 @@ devDependencies:
   '@tailwindcss/typography':
     specifier: ^0.5.16
     version: 0.5.16(tailwindcss@3.4.17)
+  '@types/lodash':
+    specifier: ^4.17.15
+    version: 4.17.15
   '@types/node':
     specifier: ^20
     version: 20.17.17
@@ -2093,7 +2093,7 @@ packages:
 
   /@types/lodash@4.17.15:
     resolution: {integrity: sha512-w/P33JFeySuhN6JLkysYUK2gEmy9kHHFN7E8ro0tkfmlDOgxBDzWEZ/J8cWA+fHqFevpswDTFZnDx+R9lbL6xw==}
-    dev: false
+    dev: true
 
   /@types/markdown-it@14.1.2:
     resolution: {integrity: sha512-promo4eFwuiW+TfGxhi+0x3czqTYJkG8qB17ZUJiVF10Xm7NLVRSLUsfRTU/6h1e24VvRnXCx+hG7li58lkzog==}
