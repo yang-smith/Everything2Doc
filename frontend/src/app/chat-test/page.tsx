@@ -11,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 const DOC_TYPES = [
   {
     value: 'meeting_minutes',
-    label: '会议纪要'
+    label: '会议纪要1'
   },
   {
     value: 'project_summary',
