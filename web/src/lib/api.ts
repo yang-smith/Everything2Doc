@@ -235,7 +235,7 @@ export const api = {
           .filter(line => line.length > 0)
       )
       .slice(1, 4);
-    return result;
+      return [...result, '最近一个月的总结'];
   },
 
   async getProjects(): Promise<Project[]> {

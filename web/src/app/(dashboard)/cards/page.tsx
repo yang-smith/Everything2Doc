@@ -22,18 +22,28 @@ export default function Page() {
     isLoading: boolean
     error?: string
   }>({ content: '', isLoading: false })
+  const timelineWidth = useProjectStore(state => state.uiState.timelineWidth)
+  const setTimelineWidth = useProjectStore(state => state.setTimelineWidth)
   const [leftWidth, setLeftWidth] = useState('55%')
   const [isDragging, setIsDragging] = useState(false)
 
-  const handleStreamDocument = async (actionId: string) => {
+  const handleStreamDocument = async (actionTitle: string) => {
     setDocumentContent({ content: '', isLoading: true, error: undefined })
     
     try {
       if(currentProjectId){
-        const eventSource = api.createMonthSummaryStream(currentProjectId, {
-          start_date: '2024-06-01',
-          end_date: '2024-06-30'
-        })
+        var eventSource: EventSource
+        if(actionTitle == '最近一个月的总结'){
+          eventSource = api.createMonthSummaryStream(currentProjectId, {
+            start_date: '2024-06-01',
+            end_date: '2024-06-30'
+          })
+        }
+        else{
+          console.log('actionTitle', actionTitle)
+          return
+        }
+
         setDocumentContent(prev => ({
           ...prev,
           content: ' ',
@@ -119,6 +129,15 @@ export default function Page() {
     }
   }, [handleMouseMove, handleMouseUp])
 
+  // 当 DocumentViewer 显示时自动调整宽度
+  useEffect(() => {
+    if (documentContent.content) {
+      setTimelineWidth('35%')
+    } else {
+      setTimelineWidth('55%')
+    }
+  }, [documentContent.content, setTimelineWidth])
+
   if (!currentProjectId) {
     return (
       <div className="flex-1 flex items-center justify-center min-h-screen">
@@ -149,10 +168,12 @@ export default function Page() {
 
   return (
     <div className="flex h-[calc(100vh-theme(spacing.16))] cards-container">
-      {/* 左侧时间线 */}
-      <div 
+      <motion.div 
         className="relative flex flex-col rounded-lg bg-card border shadow-sm"
-        style={{ width: leftWidth, minWidth: '400px' }}
+        style={{ width: timelineWidth }}
+        initial={false}
+        animate={{ width: timelineWidth }}
+        transition={{ duration: 0.3, ease: "easeInOut" }}
       >
         <div className="flex-1 overflow-auto">
           <Timeline projectId={currentProjectId} />
@@ -161,30 +182,37 @@ export default function Page() {
           className="absolute -right-2 top-0 bottom-0 w-1 cursor-col-resize z-20 hover:bg-primary/30 active:bg-primary/50"
           onMouseDown={handleMouseDown}
         />
-      </div>
+      </motion.div>
 
-      {/* 右侧内容区 - 添加 relative 定位 */}
-      <div className="flex-1 min-w-0 relative flex flex-col rounded-lg bg-card border shadow-sm ml-4">
-<AnimatePresence mode='wait'>
-  {documentContent.content ? (
-    <DocumentViewer
-      key="document-viewer" // 添加唯一key
-      content={documentContent.content}
-      isLoading={documentContent.isLoading}
-      onBack={() => setDocumentContent({ content: '', isLoading: false })}
-    />
-  ) : !chatVisible ? (
-    <main 
-      key="recommended-actions" // 添加唯一key
-      className="flex-1 overflow-auto"
-    >
-      <RecommendedActions
-        projectId={currentProjectId}
-        onActionClick={handleStreamDocument}
-      />
-    </main>
-  ) : null}
-</AnimatePresence>
+      {/* 右侧内容区 */}
+      <motion.div 
+        className="flex-1 min-w-0 relative flex flex-col rounded-lg bg-card border shadow-sm ml-4"
+        initial={false}
+        animate={{ 
+          flexGrow: documentContent.content ? 1.5 : 1 
+        }}
+        transition={{ duration: 0.3, ease: "easeInOut" }}
+      >
+        <AnimatePresence mode='wait'>
+          {documentContent.content ? (
+            <DocumentViewer
+              key="document-viewer" // 添加唯一key
+              content={documentContent.content}
+              isLoading={documentContent.isLoading}
+              onBack={() => setDocumentContent({ content: '', isLoading: false })}
+            />
+          ) : !chatVisible ? (
+            <main 
+              key="recommended-actions" // 添加唯一key
+              className="flex-1 overflow-auto"
+            >
+              <RecommendedActions
+                projectId={currentProjectId}
+                onActionClick={handleStreamDocument}
+              />
+            </main>
+          ) : null}
+        </AnimatePresence>
 
         {/* 覆盖层：聊天内容 */}
         <AnimatePresence>
@@ -213,7 +241,7 @@ export default function Page() {
             </motion.div>
           )}
         </AnimatePresence>
-      </div>
+      </motion.div>
     </div>
   )
 }

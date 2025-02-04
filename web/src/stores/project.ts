@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 // import { shallow } from 'zustand/shallow'
 import { ChatMessage } from '@/lib/chat-parser'
+import { api } from '@/lib/api'
 
 interface ChatState {
   messages: ChatMessage[]
@@ -22,6 +23,7 @@ interface ProjectState {
   uiState: {
     chatVisible: boolean
     targetMessageTime?: string
+    timelineWidth: string
   }
   
   showChat: () => void
@@ -29,6 +31,10 @@ interface ProjectState {
   toggleChat: () => void
   scrollToMessage: (timestamp: string) => void
   clearTargetMessage: () => void
+  
+  recommendations: Record<string, string[]>
+  setRecommendations: (projectId: string, recommendations: string[]) => void
+  setTimelineWidth: (width: string) => void
 }
 
 const initialChatState: ChatState = {
@@ -85,6 +91,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
   uiState: {
     chatVisible: false,
     targetMessageTime: undefined,
+    timelineWidth: '55%'
   },
   
   // UI 控制方法
@@ -112,6 +119,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
   scrollToMessage: (timestamp: string) => {
     set(state => ({
       uiState: {
+        ...state.uiState,
         chatVisible: true,
         targetMessageTime: timestamp
       }
@@ -125,7 +133,24 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
         targetMessageTime: undefined
       }
     }))
-  }
+  },
+  
+  recommendations: {},
+  setRecommendations: (projectId, recommendations) => {
+    set(state => ({
+      recommendations: {
+        ...state.recommendations,
+        [projectId]: recommendations
+      }
+    }))
+  },
+  
+  setTimelineWidth: (width) => set(state => ({
+    uiState: {
+      ...state.uiState,
+      timelineWidth: width
+    }
+  }))
 }))
 
 // 便捷的选择器
