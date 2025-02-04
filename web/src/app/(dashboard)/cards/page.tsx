@@ -50,6 +50,12 @@ export default function Page() {
         }))
         eventSource.onmessage = (event) => {
           try {
+            if (event.data === '[DONE]') {
+              setDocumentContent(prev => ({ ...prev, isLoading: false }))
+              eventSource.close()
+              return
+            }
+
             const data = JSON.parse(event.data)
             
             if (data.content) {
@@ -73,11 +79,6 @@ export default function Page() {
                 isLoading: false,
                 error: data.error
               }))
-              eventSource.close()
-            }
-            
-            if (event.data === '[DONE]') {
-              setDocumentContent(prev => ({ ...prev, isLoading: false }))
               eventSource.close()
             }
           } catch (err) {
