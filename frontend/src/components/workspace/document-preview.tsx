@@ -73,24 +73,6 @@ export function DocumentPreview({
           <ReactMarkdown
             remarkPlugins={[remarkGfm]}
             components={{
-              code({node, inline, className, children, ...props}) {
-                const match = /language-(\w+)/.exec(className || '')
-                return !inline && match ? (
-                  <SyntaxHighlighter
-                    {...props}
-                    style={vs}
-                    language={match[1]}
-                    PreTag="div"
-                    className="rounded-md border"
-                  >
-                    {String(children).replace(/\n$/, '')}
-                  </SyntaxHighlighter>
-                ) : (
-                  <code {...props} className="bg-muted px-1 py-0.5 rounded-md">
-                    {children}
-                  </code>
-                )
-              },
               // 自定义其他 Markdown 元素的样式
               h1: ({node, ...props}) => <h1 {...props} className="text-2xl font-bold mb-4 mt-6" />,
               h2: ({node, ...props}) => <h2 {...props} className="text-xl font-semibold mb-3 mt-5" />,

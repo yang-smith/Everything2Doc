@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 // import { shallow } from 'zustand/shallow'
 import { ChatMessage } from '@/lib/chat-parser'
-import { api } from '@/lib/api'
+
 
 interface ChatState {
   messages: ChatMessage[]

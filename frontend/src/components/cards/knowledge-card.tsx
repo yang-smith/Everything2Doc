@@ -7,9 +7,7 @@ import { FileText, Lightbulb, MessageSquare, ChevronDown, BookOpen, Code } from 
 import { Card } from '@/types/type-cards'
 import { format, parseISO } from 'date-fns'
 import { zhCN } from 'date-fns/locale'
-import { ChatContent } from './chat-content'
 import { useProjectStore } from '@/stores/project'
-import { Dialog, DialogContent } from "@/components/ui/dialog"
 
 const categoryIcons = {
   concept: BookOpen,

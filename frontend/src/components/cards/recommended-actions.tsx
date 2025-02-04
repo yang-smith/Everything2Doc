@@ -1,24 +1,14 @@
 "use client"
 
 import * as React from 'react'
-import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { ScrollArea } from '@/components/ui/scroll-area'
-import { FileText, Calendar, ListTodo, HelpCircle, BookOpen, ArrowRight, FileBarChart, MessageSquareQuote, AlertCircle } from 'lucide-react'
+import { FileBarChart, ArrowRight, AlertCircle } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { cn } from '@/lib/utils'
-import { useEffect, useState, useCallback, useMemo } from 'react'
+import { useEffect, useState } from 'react'
 import { api } from '@/lib/api'
 import { useProjectStore } from '@/stores/project'
-import { shallow } from 'zustand/shallow'
 
-
-const ICONS = [
-  FileBarChart,  
-  BookOpen,      
-  ListTodo,      
-  Calendar       
-] as React.ElementType[]
 
 export function RecommendedActions({ 
   projectId, 
