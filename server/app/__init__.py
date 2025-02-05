@@ -17,7 +17,7 @@ def create_app(config_class=Config):
     # 配置CORS
     CORS(app, resources={
         r"/api/*": {
-            "origins": ["http://localhost:3000"],  # 允许的前端域名
+            "origins": ["http://localhost:3000","https://app.autumnriver.chat","https://docapi.autumnriver.chat"],  # 允许的前端域名
             "supports_credentials": True,           # 支持携带凭证
             "allow_headers": ["Content-Type"],     # 允许的请求头
             "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"]  # 允许的方法

@@ -466,9 +466,13 @@ def generate_doc(chat_records: str, doc_type: str, model: str = "deepseek-reason
                                 min_messages=1000, 
                                 time_gap_minutes=100)
     part_docs = process_chunk_parallel(segments, model=model, doc_type=doc_type)
-    part_docs = limit_text_length(part_docs, max_tokens=120000)
+    
+    # Fix: Join part_docs before passing to limit_text_length
+    combined_docs = '\n'.join(part_docs)
+    limited_docs = limit_text_length(combined_docs, max_tokens=120000)
+    
     return ai_chat_stream(
-        message=PROMPT_MERGE_DOC.format(part_docs='\n'.join(part_docs)), 
+        message=PROMPT_MERGE_DOC.format(part_docs='\n'.join(limited_docs)), 
         model=model
     )
 

@@ -2,7 +2,8 @@ import { OutputDocument } from "@/types/workspace";
 import { Segment, Card, ProjectOverview } from '@/types/type-cards'
 import { Project } from '@/types/workspace'
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
+// const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
+const API_BASE = 'https://docapi.autumnriver.chat';
 
 export type ProcessingStatus = 'pending' | 'processing' | 'completed' | 'error'
 
