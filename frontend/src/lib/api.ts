@@ -3,7 +3,7 @@ import { Segment, Card, ProjectOverview } from '@/types/type-cards'
 import { Project } from '@/types/workspace'
 
 // const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
-const API_BASE = 'https://docapi.autumnriver.chat';
+const API_BASE = 'https://e2dserver.fly.dev';
 
 export type ProcessingStatus = 'pending' | 'processing' | 'completed' | 'error'
 

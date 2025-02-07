@@ -1,9 +1,10 @@
-from flask import Flask
+from flask import Flask, jsonify
 from flask_sqlalchemy import SQLAlchemy
 from flask_cors import CORS
 from config import Config
 import os
 from concurrent.futures import ThreadPoolExecutor
+from datetime import datetime
 
 db = SQLAlchemy()
 # 创建全局线程池
@@ -17,7 +18,7 @@ def create_app(config_class=Config):
     # 配置CORS
     CORS(app, resources={
         r"/api/*": {
-            "origins": ["http://localhost:3000","https://app.autumnriver.chat","https://docapi.autumnriver.chat"],  # 允许的前端域名
+            "origins": ["http://localhost:3000","https://app.autumnriver.chat","https://docapi.autumnriver.chat","https://everything2doc.pages.dev"],  # 允许的前端域名
             "supports_credentials": True,           # 支持携带凭证
             "allow_headers": ["Content-Type"],     # 允许的请求头
             "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"]  # 允许的方法
@@ -45,5 +46,12 @@ def create_app(config_class=Config):
     
     with app.app_context():
         db.create_all()
+    
+    @app.route('/health')
+    def health_check():
+        return jsonify({
+            'status': 'healthy',
+            'timestamp': datetime.utcnow().isoformat()
+        }), 200
     
     return app

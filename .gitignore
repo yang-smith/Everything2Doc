@@ -6,7 +6,6 @@ __pycache__
 chat_records.txt
 wcf.txt
 wcf.lock
-*.txt
 *.png
 *.xlsx
 *.pkl
@@ -22,3 +21,4 @@ testDB
 output
 logs
 .next/
+examples/
