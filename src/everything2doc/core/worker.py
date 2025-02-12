@@ -289,6 +289,11 @@ def generate_monthly_summary(chat_records: str, model: str = "deepseek-reasoner"
     summary = ai_chat(message=PROMPT_MONTHLY_SUMMARY.format(chat_records=chat_records), model=model)
     return summary
 
+def generate_QA(chat_records: str, model: str = "deepseek-reasoner"):
+    QA = ai_chat(message=PROMPT_GEN_QA.format(chat_records=chat_records), model=model)
+    return QA
+
+
 def generate_part_doc(chat_records: str, doc_type: str, model: str = "deepseek-reasoner"):
     part_doc = ai_chat(message=PROMPT_GEN_PART_DOC.format(chat_records=chat_records, doc_type=doc_type), model=model)
     return part_doc
@@ -400,6 +405,8 @@ def process_chunk_parallel(chunks: List[str],
         try:
             if doc_type == "recent_month_summary":
                 summary = generate_monthly_summary(chunk, model=model)
+            elif doc_type == "Q&A":
+                summary = generate_QA(chunk, model=model)
             else:
                 summary = generate_part_doc(chunk, doc_type, model=model)
             if not summary or len(summary.strip()) == 0:

@@ -36,7 +36,8 @@ type DocType = typeof DOC_TYPES[number]['value']
 export default function ChatTestPage() {
   // 聊天相关状态
   const [messages, setMessages] = useState<string[]>([])
-  const [input, setInput] = useState('')
+  const [prompt, setPrompt] = useState('')  // 新增prompt输入状态
+  const [chatHistory, setChatHistory] = useState('')  // 新增聊天记录状态
   const [isStreaming, setIsStreaming] = useState(false)
   
   // 月度总结相关状态
@@ -70,17 +71,27 @@ export default function ChatTestPage() {
   // 处理聊天提交
   const handleChatSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!input.trim() || isStreaming) return
+    if ((!prompt.trim() && !chatHistory.trim()) || isStreaming) return
 
-    setMessages(prev => [...prev, `用户: ${input}`])
+    const combinedInput = `${prompt.trim()}\n\n聊天记录：\n${chatHistory.trim()}`
+    
+    // setMessages(prev => [...prev, `${prompt}\n聊天记录: ${chatHistory}`])
     setIsStreaming(true)
     let responseText = ''
     
     try {
-      const eventSource = api.createChatStream(input)
+      const eventSource = api.createChatStream(combinedInput)
       
       eventSource.onmessage = (event) => {
         try {
+          // 首先检查是否是完成信号
+          if (event.data === '[DONE]') {
+            eventSource.close()
+            setIsStreaming(false)
+            return
+          }
+
+          // 然后尝试解析JSON数据
           const data = JSON.parse(event.data)
           
           // 处理开始消息
@@ -93,13 +104,6 @@ export default function ChatTestPage() {
           if (data.error) {
             console.error('Stream error:', data.error)
             setMessages(prev => [...prev, `错误: ${data.error}`])
-            eventSource.close()
-            setIsStreaming(false)
-            return
-          }
-          
-          // 处理完成信号
-          if (event.data === '[DONE]') {
             eventSource.close()
             setIsStreaming(false)
             return
@@ -126,7 +130,10 @@ export default function ChatTestPage() {
       setIsStreaming(false)
       setMessages(prev => [...prev, "错误：无法创建连接"])
     }
-    setInput('')
+    
+    // 保留输入内容，方便调整
+    // setPrompt('')
+    // setChatHistory('')
   }
 
   // 新增：处理月度总结生成
@@ -261,14 +268,14 @@ export default function ChatTestPage() {
         <div className="h-[400px] border rounded-lg bg-background p-4">
           <ScrollArea ref={scrollRef} className="h-full">
             <div className="space-y-4">
-            {messages.map((msg, index) => (
-              <div 
-                key={`msg-${index}-${msg.slice(0,10)}`} // 添加唯一组合key
-                className="text-sm whitespace-pre-wrap"
-              >
-                {msg}
-              </div>
-            ))}
+              {messages.map((msg, index) => (
+                <div 
+                  key={`msg-${index}-${msg.slice(0,10)}`}
+                  className="text-sm whitespace-pre-wrap"
+                >
+                  {msg}
+                </div>
+              ))}
               {isStreaming && (
                 <div className="text-muted-foreground animate-pulse">
                   AI正在思考...
@@ -278,14 +285,34 @@ export default function ChatTestPage() {
           </ScrollArea>
         </div>
         
-        <form onSubmit={handleChatSubmit} className="flex gap-2">
-          <Input
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            placeholder="输入消息..."
-            disabled={isStreaming}
-          />
-          <Button type="submit" disabled={isStreaming}>
+        <form onSubmit={handleChatSubmit} className="space-y-4">
+          <div className="space-y-2">
+            <label className="text-sm font-medium">
+              提示词（用于指导AI如何处理聊天记录）
+            </label>
+            <textarea
+              value={prompt}
+              onChange={(e) => setPrompt(e.target.value)}
+              placeholder="例如：请将以下聊天记录整理成会议纪要..."
+              disabled={isStreaming}
+              className="w-full h-32 px-3 py-2 border rounded-md"
+            />
+          </div>
+          
+          <div className="space-y-2">
+            <label className="text-sm font-medium">
+              聊天记录
+            </label>
+            <textarea
+              value={chatHistory}
+              onChange={(e) => setChatHistory(e.target.value)}
+              placeholder="粘贴需要处理的聊天记录..."
+              disabled={isStreaming}
+              className="w-full h-32 px-3 py-2 border rounded-md"
+            />
+          </div>
+          
+          <Button type="submit" disabled={isStreaming} className="w-full">
             发送
           </Button>
         </form>

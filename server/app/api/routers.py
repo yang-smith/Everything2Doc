@@ -295,9 +295,9 @@ def stream_chat():
         # 创建流式响应
         stream = ai_chat_stream(
             message=message,
-            model='deepseek-chat'
+            model='deepseek/deepseek-r1-distill-llama-70b'
         )
-        return create_sse_response(stream, model='deepseek-chat')
+        return create_sse_response(stream, model='deepseek/deepseek-r1-distill-llama-70b')
 
     except Exception as e:
         current_app.logger.error(f"Error in stream chat: {str(e)}")
