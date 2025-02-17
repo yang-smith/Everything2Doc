@@ -7,6 +7,7 @@ import { api } from '@/lib/api'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Progress } from '@/components/ui/progress'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import ReactMarkdown from 'react-markdown'
 
 const DOC_TYPES = [
   {
@@ -142,7 +143,7 @@ export default function ChatTestPage() {
           // 处理内容块
           if (data.content) {
             responseText += data.content
-            setMessages(prev => [...prev.slice(0, -1), `AI: ${responseText}`])
+            setMessages(prev => [...prev.slice(0, -1), `${responseText}`])
           }
         } catch (error) {
           console.error('Error parsing stream data:', error)
@@ -324,9 +325,11 @@ export default function ChatTestPage() {
               {messages.map((msg, index) => (
                 <div 
                   key={`msg-${index}-${msg.slice(0,10)}`}
-                  className="text-sm whitespace-pre-wrap"
+                  className="text-sm prose prose-sm max-w-none dark:prose-invert"
                 >
-                  {msg}
+                  <ReactMarkdown>
+                    {msg}
+                  </ReactMarkdown>
                 </div>
               ))}
               {isStreaming && (

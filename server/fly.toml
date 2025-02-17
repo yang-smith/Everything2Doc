@@ -25,12 +25,12 @@ primary_region = "hkg"
   min_machines_running = 0
 
   [[http_service.checks]]
-    grace_period = "300s"
-    interval = "300s"
+    grace_period = "60s"
+    interval = "60s"
     method = "GET"
     path = "/health"
     protocol = "http"
-    timeout = "100s"
+    timeout = "60s"
     [http_service.checks.headers]
       Content-Type = "application/json"
 

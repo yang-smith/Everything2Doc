@@ -29,4 +29,4 @@ ENV PORT=8080
 EXPOSE 8080
 
 # Run gunicorn
-CMD ["gunicorn", "--bind", ":8080", "--workers", "2", "--timeout", "300", "--worker-class", "gevent", "app:create_app()"]
+CMD ["gunicorn", "--bind", ":8080", "--workers", "2", "--timeout", "300", "--worker-class", "gevent", "--limit-request-line","0","app:create_app()"]
