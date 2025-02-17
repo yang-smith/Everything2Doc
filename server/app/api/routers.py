@@ -301,7 +301,7 @@ def stream_chat():
             message=message,
             model=model
         )
-        return create_sse_response(stream, model='deepseek/deepseek-r1-distill-llama-70b')
+        return create_sse_response(stream, model=model)
 
     except Exception as e:
         current_app.logger.error(f"Error in stream chat: {str(e)}")
