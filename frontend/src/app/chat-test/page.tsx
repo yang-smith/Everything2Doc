@@ -33,6 +33,35 @@ const DOC_TYPES = [
 
 type DocType = typeof DOC_TYPES[number]['value']
 
+const AI_MODELS = [
+  {
+    value: 'qwen/qwen-turbo',
+    label: 'Qwen Turbo'
+  },
+  {
+    value: 'deepseek/deepseek-r1-distill-llama-70b',
+    label: 'Deepseek R1 Distill 70B'
+  },
+  {
+    value: 'deepseek/deepseek-r1',
+    label: 'Deepseek R1'
+  },
+  {
+    value: 'deepseek/deepseek-chat',
+    label: 'Deepseek Chat'
+  },
+  {
+    value: 'openai/gpt-4o-2024-11-20',
+    label: 'GPT-4O'
+  },
+  {
+    value: 'anthropic/claude-3.5-haiku-20241022',
+    label: 'Claude 3.5 Haiku'
+  }
+] as const
+
+type AIModel = typeof AI_MODELS[number]['value']
+
 export default function ChatTestPage() {
   // 聊天相关状态
   const [messages, setMessages] = useState<string[]>([])
@@ -58,6 +87,7 @@ export default function ChatTestPage() {
   const [docError, setDocError] = useState('')
   
   const [selectedDocType, setSelectedDocType] = useState<DocType>('meeting_minutes')
+  const [selectedModel, setSelectedModel] = useState<AIModel>('deepseek/deepseek-r1-distill-llama-70b')
   
   const scrollRef = useRef<HTMLDivElement>(null)
 
@@ -75,12 +105,12 @@ export default function ChatTestPage() {
 
     const combinedInput = `${prompt.trim()}\n\n聊天记录：\n${chatHistory.trim()}`
     
-    // setMessages(prev => [...prev, `${prompt}\n聊天记录: ${chatHistory}`])
+    // setMessages(prev => [...prev, `用户输入:\n提示词: ${prompt}\n聊天记录: ${chatHistory}`])
     setIsStreaming(true)
     let responseText = ''
     
     try {
-      const eventSource = api.createChatStream(combinedInput)
+      const eventSource = api.createChatStream(combinedInput, selectedModel)
       
       eventSource.onmessage = (event) => {
         try {
@@ -265,6 +295,29 @@ export default function ChatTestPage() {
       {/* 聊天测试部分 */}
       <section className="space-y-4">
         <h2 className="text-xl font-bold">聊天测试</h2>
+        
+        {/* 添加模型选择 */}
+        <div className="w-full">
+          <label className="text-sm font-medium block mb-2">
+            选择模型
+          </label>
+          <Select
+            value={selectedModel}
+            onValueChange={(value: AIModel) => setSelectedModel(value)}
+          >
+            <SelectTrigger className="w-full">
+              <SelectValue placeholder="选择AI模型" />
+            </SelectTrigger>
+            <SelectContent>
+              {AI_MODELS.map(({ value, label }) => (
+                <SelectItem key={value} value={value}>
+                  {label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
         <div className="h-[400px] border rounded-lg bg-background p-4">
           <ScrollArea ref={scrollRef} className="h-full">
             <div className="space-y-4">

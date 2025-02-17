@@ -2,8 +2,8 @@ import { OutputDocument } from "@/types/workspace";
 import { Segment, Card, ProjectOverview } from '@/types/type-cards'
 import { Project } from '@/types/workspace'
 
-// const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
-const API_BASE = 'https://e2dserver.fly.dev';
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
+// const API_BASE = 'https://e2dserver.fly.dev';
 
 export type ProcessingStatus = 'pending' | 'processing' | 'completed' | 'error'
 
@@ -211,31 +211,32 @@ export const api = {
   },
 
   async getProjectRecommendation(projectId: string): Promise<string[]> {
-    const response = await fetch(`${API_BASE}/api/projects/${projectId}/recommendation`);
-    if (!response.ok) {
-      throw new Error('Failed to fetch project recommendation');
-    }
-    const rawData = await response.json();
+    // const response = await fetch(`${API_BASE}/api/projects/${projectId}/recommendation`);
+    // if (!response.ok) {
+    //   throw new Error('Failed to fetch project recommendation');
+    // }
+    // const rawData = await response.json();
 
-    const recommendations = Array.isArray(rawData) ? rawData : [rawData];
+    // const recommendations = Array.isArray(rawData) ? rawData : [rawData];
 
-    const decodeUnicode = (str: string) => 
-      str.replace(/\\u([\dA-Fa-f]{4})/g, (_, grp) => 
-        String.fromCharCode(parseInt(grp, 16))
-      );
+    // const decodeUnicode = (str: string) => 
+    //   str.replace(/\\u([\dA-Fa-f]{4})/g, (_, grp) => 
+    //     String.fromCharCode(parseInt(grp, 16))
+    //   );
 
-    const result =  recommendations
-      .flatMap((item: string) => 
-        decodeUnicode(item)
-          .split('\n')
-          .map(line => line
-            .replace(/^[\d\u4e00-\u9fa5]+[、.．]\s*/, '')
-            .trim()
-          )
-          .filter(line => line.length > 0)
-      )
-      .slice(1, 4);
-      return [...result, '最近一个月的总结'];
+    // const result =  recommendations
+    //   .flatMap((item: string) => 
+    //     decodeUnicode(item)
+    //       .split('\n')
+    //       .map(line => line
+    //         .replace(/^[\d\u4e00-\u9fa5]+[、.．]\s*/, '')
+    //         .trim()
+    //       )
+    //       .filter(line => line.length > 0)
+    //   )
+    //   .slice(1, 4);
+      // return [...result, '最近一个月的总结'];
+      return ['常见问答文档', '最近一个月的总结']
   },
 
   async getProjects(): Promise<Project[]> {
@@ -256,8 +257,11 @@ export const api = {
     return data.content
   },
 
-  createChatStream(message: string) {
-    const eventSource = new EventSource(`${API_BASE}/api/chat/stream?message=${encodeURIComponent(message)}`, {
+  createChatStream(message: string, model?: string) {
+    if(!model){
+      model = 'deepseek/deepseek-r1-distill-llama-70b'
+    }
+    const eventSource = new EventSource(`${API_BASE}/api/chat/stream?message=${encodeURIComponent(message)}&model=${encodeURIComponent(model)}`, {
       withCredentials: true
     });
     
@@ -283,7 +287,10 @@ export const api = {
   },
 
   createDocStream(projectId: string, docType: string): EventSource {
-    const encodedDocType = encodeURIComponent(docType);
+    let encodedDocType = encodeURIComponent(docType);
+    if (docType == '常见问答文档'){
+      encodedDocType = 'QA';
+    }
     const eventSource = new EventSource(
       `${API_BASE}/api/projects/${projectId}/doc_stream?doc_type=${encodedDocType}`
     );

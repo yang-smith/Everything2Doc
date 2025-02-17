@@ -285,17 +285,21 @@ def stream_chat():
     try:
         if request.method == 'GET':
             message = request.args.get('message')
+            model = request.args.get('model')
         else:
             data = request.get_json()
             message = data.get('message')
+            model = data.get('model')
 
         if not message:
             return jsonify({'error': 'Message is required'}), 400
 
-        # 创建流式响应
+        if not model:
+            model = 'deepseek/deepseek-r1-distill-llama-70b'
+        
         stream = ai_chat_stream(
             message=message,
-            model='deepseek/deepseek-r1-distill-llama-70b'
+            model=model
         )
         return create_sse_response(stream, model='deepseek/deepseek-r1-distill-llama-70b')
 

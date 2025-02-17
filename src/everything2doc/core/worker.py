@@ -7,7 +7,20 @@ from tqdm import tqdm
 import os 
 from ..preprocessing.reader import read_file
 from ..preprocessing.split import split_chat_records, split_by_time_period
-from ..prompt.prompt import PROMPT_GEN_STRUCTURE, PROMPT_GEN_DOC_STRUCTURE, PROMPT_GET_INFO, PROMPT_GEN_END_DOC, PROMPT_EXTRACT_INFO, PROMPT_GEN_OVERVIEW, PROMPT_MONTHLY_SUMMARY, PROMPT_MERGE_SUMMARY, PROMPT_GEN_RECOMMENDATIONS, PROMPT_GEN_PART_DOC, PROMPT_MERGE_DOC
+from ..prompt.prompt import (
+    PROMPT_GEN_STRUCTURE,
+    PROMPT_GEN_DOC_STRUCTURE,
+    PROMPT_GET_INFO,
+    PROMPT_GEN_END_DOC,
+    PROMPT_EXTRACT_INFO,
+    PROMPT_GEN_OVERVIEW,
+    PROMPT_MONTHLY_SUMMARY,
+    PROMPT_MERGE_SUMMARY,
+    PROMPT_GEN_RECOMMENDATIONS,
+    PROMPT_GEN_PART_DOC,
+    PROMPT_MERGE_DOC,
+    PROMPT_GEN_QA,
+)
 from .gen_structure import gen_structure
 from dataclasses import dataclass
 from typing import List, Optional
@@ -405,7 +418,7 @@ def process_chunk_parallel(chunks: List[str],
         try:
             if doc_type == "recent_month_summary":
                 summary = generate_monthly_summary(chunk, model=model)
-            elif doc_type == "Q&A":
+            elif doc_type == "QA":
                 summary = generate_QA(chunk, model=model)
             else:
                 summary = generate_part_doc(chunk, doc_type, model=model)
@@ -467,6 +480,8 @@ def generate_recent_month_summary(chat_content: str,
         model=model
     )
 
+
+
 def generate_doc(chat_records: str, doc_type: str, model: str = "deepseek-reasoner"):
     segments = split_chat_records(chat_records, 
                                 max_messages=1300, 
@@ -476,6 +491,7 @@ def generate_doc(chat_records: str, doc_type: str, model: str = "deepseek-reason
     
     # Fix: Join part_docs before passing to limit_text_length
     combined_docs = '\n'.join(part_docs)
+
     limited_docs = limit_text_length(combined_docs, max_tokens=120000)
     
     return ai_chat_stream(
