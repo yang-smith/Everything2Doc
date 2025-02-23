@@ -2,6 +2,7 @@ from datetime import datetime, timedelta
 import re
 import os
 from typing import List
+from ..utils.ai_chat_client import num_tokens_from_string
 
 def split_chat_records(chat_text, max_messages=500, min_messages=300, time_gap_minutes=100):
     """
@@ -202,3 +203,64 @@ def limit_text_length(text: str, max_tokens: int = 10000) -> List[str]:
         chunks.append('\n'.join(current_chunk))
     
     return chunks
+
+def split_by_tokens(chat_text: str, max_tokens: int = 8000) -> List[str]:
+    """
+    按照token数量分割聊天记录
+    
+    Args:
+        chat_text: 原始聊天记录文本
+        max_tokens: 每个片段最大token数
+    
+    Returns:
+        List[str]: 分割后的聊天记录片段列表
+    """
+    # 解析消息
+    # 时间格式：2023-05-11 19:33:39
+    pattern = r'(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}) (.*?)(?=\n\d{4}-\d{2}-\d{2}|\Z)'
+    messages = re.findall(pattern, chat_text, re.DOTALL)
+    
+    if not messages:
+        return []
+    
+    # 存储分割后的片段
+    segments = []
+    current_segment = []
+    current_tokens = 0
+    
+    for i, (timestamp, content) in enumerate(messages):
+        # 构造完整消息
+        message = f"{timestamp} {content}"
+        message_tokens = num_tokens_from_string(message)
+        
+        # 如果单条消息就超过最大token限制
+        if message_tokens > max_tokens:
+            # 如果当前段落非空，先保存当前段落
+            if current_segment:
+                segments.append('\n'.join(current_segment))
+                current_segment = []
+                current_tokens = 0
+            # 将大消息单独作为一个段落
+            segments.append(message)
+            continue
+            
+        # 如果当前消息加入后会超过token限制，保存当前段落并开始新段落
+        if current_tokens + message_tokens > max_tokens:
+            segments.append('\n'.join(current_segment))
+            current_segment = []
+            current_tokens = 0
+            
+        # 将消息添加到当前段落
+        current_segment.append(message)
+        current_tokens += message_tokens
+    
+    # 处理最后一个段落
+    if current_segment:
+        segments.append('\n'.join(current_segment))
+    
+    # print(f"Split into {len(segments)} segments based on tokens:")
+    # for i, segment in enumerate(segments, 1):
+    #     segment_tokens = num_tokens_from_string(segment)
+    #     print(f"Segment {i}: {segment_tokens} tokens")
+    
+    return segments

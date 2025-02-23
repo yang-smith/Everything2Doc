@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react'
-import { api, ProjectCardsResponse } from '@/lib/api'
+import { api } from '@/lib/api'
 import { Card } from '@/types/type-cards'
-import { truncate } from 'fs/promises'
 
   
 export function useProjectData(projectId: string) {

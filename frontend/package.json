@@ -27,6 +27,8 @@
     "html2pdf.js": "^0.10.2",
     "lodash": "^4.17.21",
     "lucide-react": "^0.468.0",
+    "mermaid": "^11.4.1",
+    "mermaid-react": "^0.1.0",
     "next": "15.0.4",
     "next-auth": "^4.24.11",
     "react": "^19.0.0",

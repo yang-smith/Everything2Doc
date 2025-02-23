@@ -1,4 +1,4 @@
-from everything2doc.utils.ai_chat_client import ai_chat, ai_chat_stream
+from everything2doc.utils.ai_chat_client import ai_chat, ai_chat_stream, ai_chat_async, num_tokens_from_string
 from datetime import datetime
 import re
 from concurrent.futures import ThreadPoolExecutor
@@ -6,7 +6,7 @@ import concurrent.futures
 from tqdm import tqdm
 import os 
 from ..preprocessing.reader import read_file
-from ..preprocessing.split import split_chat_records, split_by_time_period
+from ..preprocessing.split import split_chat_records, split_by_time_period, split_by_tokens
 from ..prompt.prompt import (
     PROMPT_GEN_STRUCTURE,
     PROMPT_GEN_DOC_STRUCTURE,
@@ -23,7 +23,9 @@ from ..prompt.prompt import (
 )
 from .gen_structure import gen_structure
 from dataclasses import dataclass
-from typing import List, Optional
+from typing import List, Optional, Callable
+from tiktoken import get_encoding
+import asyncio
 
 @dataclass
 class Card:
@@ -304,6 +306,7 @@ def generate_monthly_summary(chat_records: str, model: str = "deepseek-reasoner"
 
 def generate_QA(chat_records: str, model: str = "deepseek-reasoner"):
     QA = ai_chat(message=PROMPT_GEN_QA.format(chat_records=chat_records), model=model)
+    print("generate QA")
     return QA
 
 
@@ -448,6 +451,127 @@ def process_chunk_parallel(chunks: List[str],
     
     return summaries
 
+async def process_chunk_parallel_async(chunks: List[str], 
+                         model: str = "deepseek-reasoner",
+                         doc_type: str = "recent_month_summary") -> List[str]:
+    """
+    并行处理文本块生成摘要
+    
+    Args:
+        chunks: 文本块列表
+        model: 使用的AI模型
+        doc_type: 文档类型
+    
+    Returns:
+        List[str]: 生成的摘要列表
+    """
+    print(f"\nStarting parallel processing with model: {model}")
+    print(f"Number of chunks: {len(chunks)}")
+    print(f"Document type: {doc_type}")
+    
+    async def process_single_chunk(chunk: str, chunk_index: int) -> tuple[int, Optional[str]]:
+        try:
+            print(f"\nProcessing chunk {chunk_index}")
+            print(f"Chunk size: {len(chunk)} characters")
+            print(f"Chunk tokens: {num_tokens_from_string(chunk)}")
+            
+            # 构建提示
+            if doc_type == "recent_month_summary":
+                prompt = PROMPT_MONTHLY_SUMMARY.format(chat_records=chunk)
+            elif doc_type == "QA":
+                prompt = PROMPT_GEN_QA.format(chat_records=chunk)
+            else:
+                prompt = PROMPT_GEN_PART_DOC.format(chat_records=chunk, doc_type=doc_type)
+            
+            # 调用AI
+            try:
+                summary = await ai_chat_async(
+                    message=prompt,
+                    model=model
+                )
+                
+                # 验证响应
+                if not summary:
+                    print(f"Warning: Empty response from model for chunk {chunk_index}")
+                    return chunk_index, None
+                    
+                if len(summary.strip()) == 0:
+                    print(f"Warning: Whitespace-only response for chunk {chunk_index}")
+                    return chunk_index, None
+                
+                print(f"Successfully processed chunk {chunk_index}")
+                print(f"Response length: {len(summary)} characters")
+                return chunk_index, summary
+                
+            except Exception as e:
+                print(f"AI chat error for chunk {chunk_index}: {str(e)}")
+                return chunk_index, None
+                
+        except Exception as e:
+            print(f"Error in process_single_chunk {chunk_index}: {str(e)}")
+            return chunk_index, None
+
+    # 创建任务列表
+    tasks = [
+        process_single_chunk(chunk, i) 
+        for i, chunk in enumerate(chunks)
+    ]
+    
+    # 使用tqdm创建进度条
+    pbar = tqdm(total=len(tasks), desc="Processing chunks")
+    results = []
+    failed_chunks = []
+    
+    # 并行执行任务
+    for completed_task in asyncio.as_completed(tasks):
+        try:
+            index, result = await completed_task
+            if result is not None:
+                results.append((index, result))
+            else:
+                failed_chunks.append(index)
+            pbar.update(1)
+        except Exception as e:
+            print(f"Task completion error: {str(e)}")
+            pbar.update(1)
+    
+    pbar.close()
+    
+    # 打印处理统计
+    print(f"\nProcessing completed:")
+    print(f"Successful chunks: {len(results)}")
+    print(f"Failed chunks: {len(failed_chunks)}")
+    if failed_chunks:
+        print(f"Failed chunk indices: {failed_chunks}")
+    
+    if not results:
+        print("\nDetailed error summary:")
+        print(f"Total chunks: {len(chunks)}")
+        print(f"All chunks failed to process")
+        print(f"Please check the logs above for specific error messages")
+        raise ValueError("No valid summaries generated - all chunks failed to process")
+    
+    # 按原始顺序排序结果
+    results.sort(key=lambda x: x[0])
+    return [result for _, result in results if result is not None]
+
+# 同步包装函数
+def process_summaries_sync(
+    chunks: List[str],
+    model: str = "deepseek-reasoner",
+    doc_type: str = "recent_month_summary"
+) -> List[str]:
+    """
+    同步版本的并行文本块处理函数
+    """
+    return asyncio.run(
+        process_chunk_parallel_async(
+            chunks=chunks,
+            model=model,
+            doc_type=doc_type
+        )
+    )
+
 def generate_recent_month_summary(chat_content: str, 
                                 output_file: Optional[str] = None,
                                 model: str = "deepseek-reasoner",
@@ -480,22 +604,191 @@ def generate_recent_month_summary(chat_content: str,
         model=model
     )
 
-
-
-def generate_doc(chat_records: str, doc_type: str, model: str = "deepseek-reasoner"):
-    segments = split_chat_records(chat_records, 
-                                max_messages=1300, 
-                                min_messages=1000, 
-                                time_gap_minutes=100)
-    part_docs = process_chunk_parallel(segments, model=model, doc_type=doc_type)
+def resume_part_docs(part_docs: list, max_tokens: int = 100000) -> list:
+    """
+    将part_docs按照token数量分组，确保每组的token数不超过max_tokens
     
-    # Fix: Join part_docs before passing to limit_text_length
-    combined_docs = '\n'.join(part_docs)
+    Args:
+        part_docs: 文档片段列表
+        max_tokens: 每组最大token数
+        
+    Returns:
+        list: 分组后的文档列表，每个元素是一组文档的合并结果
+    """
+    if not part_docs:
+        return []
+        
+    enc = get_encoding("cl100k_base")
+    
+    grouped_docs = []
+    current_group = []
+    current_tokens = 0
+    
+    for doc in part_docs:
+        doc_tokens = len(enc.encode(doc))
+        
+        if doc_tokens > max_tokens:
+            if current_group:
+                grouped_docs.append('\n'.join(current_group))
+                current_group = []
+                current_tokens = 0
+            grouped_docs.append(doc)
+            continue
+            
+        if current_tokens + doc_tokens > max_tokens and current_group:
+            grouped_docs.append('\n'.join(current_group))
+            current_group = []
+            current_tokens = 0
+            
+        current_group.append(doc)
+        current_tokens += doc_tokens
+    
+    if current_group:
+        grouped_docs.append('\n'.join(current_group))
+    
+    return grouped_docs
 
-    limited_docs = limit_text_length(combined_docs, max_tokens=120000)
+async def process_grouped_docs_parallel(
+    grouped_docs: List[str],
+    prompt_template: str,
+    model: str = "deepseek-reasoner",
+    progress_callback: Optional[Callable] = None
+) -> List[str]:
+    """
+    并行处理分组后的文档
+    
+    Args:
+        grouped_docs: 分组后的文档列表
+        prompt_template: 提示模板字符串
+        model: 使用的AI模型
+        progress_callback: 进度回调函数
+    
+    Returns:
+        List[str]: 处理结果列表，保持原始顺序
+    """
+    async def process_single_doc(doc: str, index: int) -> tuple[int, str]:
+        try:
+            result = await ai_chat_async(
+                message=prompt_template.format(part_docs=doc),
+                model=model,
+                is_async=True
+            )
+            return index, result
+        except Exception as e:
+            print(f"Error processing group {index}: {str(e)}")
+            return index, None
+
+    # 创建任务列表
+    tasks = [
+        process_single_doc(doc, i) 
+        for i, doc in enumerate(grouped_docs)
+    ]
+    
+    # 使用tqdm创建进度条
+    pbar = tqdm(total=len(tasks), desc="Processing document groups")
+    results = []
+    
+    # 并行执行任务
+    for completed_task in asyncio.as_completed(tasks):
+        try:
+            index, result = await completed_task
+            if result is not None:
+                results.append((index, result))
+            
+            # 更新进度
+            pbar.update(1)
+            if progress_callback:
+                try:
+                    progress = (len(results) / len(tasks)) * 100
+                    progress_callback(progress)
+                except Exception as e:
+                    print(f"Progress callback failed: {str(e)}")
+                    
+        except Exception as e:
+            print(f"Task failed: {str(e)}")
+    
+    pbar.close()
+    
+    # 按原始顺序排序结果
+    results.sort(key=lambda x: x[0])
+    return [result for _, result in results if result is not None]
+
+# 同步包装函数
+def process_docs_parallel(
+    grouped_docs: List[str],
+    prompt_template: str,
+    model: str = "deepseek-reasoner",
+    progress_callback: Optional[Callable] = None
+) -> List[str]:
+    """
+    同步版本的并行文档处理函数
+    """
+    return asyncio.run(
+        process_grouped_docs_parallel(
+            grouped_docs=grouped_docs,
+            prompt_template=prompt_template,
+            model=model,
+            progress_callback=progress_callback
+        )
+    )
+
+
+def generate_doc(chat_records: str, doc_type: str, model: str = "deepseek-reasoner", max_tokens: int = 100000):
+    """生成文档"""
+    print("\n=== Starting Document Generation ===")
+    print(f"Initial chat records length: {len(chat_records)} characters")
+    print(f"Document type: {doc_type}")
+    print(f"Using model: {model}")
+    
+    print("\n1. Splitting chat records into segments...")
+    # segments = split_chat_records(chat_records, 
+    #                             max_messages=1300, 
+    #                             min_messages=1000, 
+    #                             time_gap_minutes=100)
+    segments = split_by_tokens(chat_records, max_tokens=100000)
+    print(f"Created {len(segments)} segments")
+    
+
+    total_tokens = sum(num_tokens_from_string(s) for s in segments)
+    avg_tokens = total_tokens / len(segments) if segments else 0
+    print(f"Average segment tokens: {avg_tokens:.0f}")
+    print(f"Total tokens: {total_tokens}")
+    
+    print("\n2. Processing segments in parallel...")
+    part_docs = process_summaries_sync(segments, model=model, doc_type=doc_type)
+    print(f"Generated {len(part_docs)} part documents")
+    
+    # 合并文档并检查token数量
+    print("\n3. Combining and checking token count...")
+    combined_docs = '\n'.join(part_docs)
+    current_tokens = num_tokens_from_string(combined_docs, encoding_name="cl100k_base")
+    print(f"Initial combined document tokens: {current_tokens}")
+    
+    iteration = 1
+    while current_tokens > max_tokens:
+        print(f"\nIteration {iteration} - Reducing document size...")
+        print(f"Current tokens: {current_tokens} (Max allowed: {max_tokens})")
+        
+        print("3.1 Resuming part docs...")
+        part_docs = resume_part_docs(part_docs)
+        print(f"Resumed into {len(part_docs)} groups")
+        
+        print("3.2 Processing resumed groups...")
+        part_docs = process_docs_parallel(part_docs, PROMPT_MERGE_DOC, model=model)
+        print(f"Processed {len(part_docs)} groups")
+        
+        combined_docs = '\n'.join(part_docs)
+        current_tokens = num_tokens_from_string(combined_docs, encoding_name="cl100k_base")
+        print(f"Tokens after processing: {current_tokens}")
+        
+        iteration += 1
+    
+    print("\n4. Generating final document...")
+    print(f"Final document tokens: {current_tokens}")
+    print("Streaming final result...\n")
     
     return ai_chat_stream(
-        message=PROMPT_MERGE_DOC.format(part_docs='\n'.join(limited_docs)), 
+        message=PROMPT_MERGE_DOC.format(part_docs = combined_docs), 
         model=model
     )
 

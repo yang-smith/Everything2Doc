@@ -11,7 +11,8 @@ load_dotenv()
 # 常量配置
 DEFAULT_TEMPERATURE = 0.05
 DEFAULT_SYSTEM_MESSAGE = "You are a helpful assistant."
-RATE_LIMITER = AsyncLimiter(4, 1)  # 4 requests per second
+semaphore = asyncio.Semaphore(10)
+
 
 def _get_client(model: str, is_async: bool = False) -> OpenAI | AsyncOpenAI:
     """Return appropriate OpenAI client based on model and type."""
@@ -56,50 +57,6 @@ def _prepare_messages(message, system_message: str = DEFAULT_SYSTEM_MESSAGE):
         {"role": "user", "content": message}
     ]
 
-async def ai_chat_async(message, model="gpt-4o-mini", response_format='NOT_GIVEN', retries=3):
-    timeout = httpx.Timeout(20.0, read=50.0)  
-    async with httpx.AsyncClient(timeout=timeout) as client:
-        messages = [
-            {"role": "system", "content": "You are a helpful assistant."},
-            {"role": "user", "content": message}
-        ]
-
-        params = {
-            "messages": messages,
-            "model": model,
-            "temperature": 0.05,
-        }
-
-        headers = {
-            "Authorization": f"Bearer {os.environ.get('OPENAI_API_KEY')}"
-        }
-
-        if response_format == 'json':
-            params["response_format"] = {"type": "json_object"}
-
-        url = os.environ.get("OPENAI_API_BASE", "https://api.openai.com/v1") + "/chat/completions"
-
-        for attempt in range(retries + 1):
-            try:
-                # 使用速率限制
-                async with RATE_LIMITER:
-                    response = await client.post(url, json=params, headers=headers)
-                response.raise_for_status()
-                data = response.json()
-                return data['choices'][0]['message']['content']
-            except httpx.HTTPStatusError as e:
-                if e.response.status_code == 429:  # 处理请求过多的情况
-                    await asyncio.sleep((2 ** attempt) * 60)  # 指数级退避
-                elif e.response.status_code >= 500:  # 处理服务器错误
-                    await asyncio.sleep(2 ** attempt)  # 短暂退避
-                else:
-                    raise  # 其他错误不重试
-            except (httpx.TimeoutException, httpx.NetworkError):
-                if attempt < retries:
-                    await asyncio.sleep(2 ** attempt)  # 网络问题的指数级退避
-                else:
-                    raise  
-
 def ai_chat(message: str | list, 
             model: str = "gpt-4o-mini", 
             response_format: str = 'NOT_GIVEN', 
@@ -128,14 +85,13 @@ def ai_chat(message: str | list,
     if response_format == 'json':
         kwargs["response_format"] = {"type": "json_object"}
     
-    # 添加 function calling 支持
     if tools:
         kwargs["tools"] = tools
         kwargs["tool_choice"] = "auto"
     
+
     chat_completion = client.chat.completions.create(**kwargs)
     
-    # 处理函数调用响应
     response_message = chat_completion.choices[0].message
     
     # 检查是否有函数调用
@@ -154,11 +110,24 @@ def ai_chat(message: str | list,
     
     return response_message.content
 
-async def ai_chat_AsyncOpenAI(message: str, model: str = "gpt-3.5-turbo", 
-                            response_format: str = 'NOT_GIVEN') -> str:
-    """Asynchronous chat completion using AsyncOpenAI client."""
+async def ai_chat_async(message: str | list, 
+            model: str = "gpt-4o-mini", 
+            response_format: str = 'NOT_GIVEN', 
+            tools: list = None) -> str:
+    """
+    Asynchronous chat completion using OpenAI API.
+    
+    Args:
+        message: User message (str) or full messages list
+        model: Model to use for completion
+        response_format: Optional response format (e.g., 'json')
+        tools: Optional list of function definitions for function calling
+    
+    Returns:
+        str: AI response content
+    """
     client = _get_client(model, is_async=True)
-    messages = _prepare_messages(message)
+    messages = message if isinstance(message, list) else _prepare_messages(message)
     
     kwargs = {
         "messages": messages,
@@ -169,10 +138,39 @@ async def ai_chat_AsyncOpenAI(message: str, model: str = "gpt-3.5-turbo",
     if response_format == 'json':
         kwargs["response_format"] = {"type": "json_object"}
     
-    async with client as aclient:
-        chat_completion = await aclient.chat.completions.create(**kwargs)
+    if tools:
+        kwargs["tools"] = tools
+        kwargs["tool_choice"] = "auto"
     
-    return chat_completion.choices[0].message.content
+    try:
+        async with semaphore:
+            chat_completion = await asyncio.wait_for(
+                client.chat.completions.create(**kwargs),
+                timeout=200
+            )
+    except asyncio.TimeoutError:
+        raise TimeoutError("API request timed out after 200 seconds")
+    except Exception as e:
+        raise e
+
+
+    response_message = chat_completion.choices[0].message
+    
+    # 检查是否有函数调用
+    if hasattr(response_message, 'tool_calls') and response_message.tool_calls:
+        tool_call = response_message.tool_calls[0]  # 获取第一个工具调用
+        function_name = tool_call.function.name
+        function_args = json.loads(tool_call.function.arguments)
+        
+        # 返回函数调用的结果
+        return json.dumps({
+            "function_call": {
+                "name": function_name,
+                "arguments": function_args
+            }
+        })
+    
+    return response_message.content
 
 # Token handling utilities
 def num_tokens_from_string(string: str, encoding_name: str = "cl100k_base") -> int:

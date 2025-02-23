@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useId } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { api } from '@/lib/api'
@@ -8,6 +8,9 @@ import { ScrollArea } from '@/components/ui/scroll-area'
 import { Progress } from '@/components/ui/progress'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import ReactMarkdown from 'react-markdown'
+import remarkGfm from 'remark-gfm'
+import mermaid from 'mermaid'
+import { Components } from 'react-markdown'
 
 const DOC_TYPES = [
   {
@@ -62,6 +65,29 @@ const AI_MODELS = [
 ] as const
 
 type AIModel = typeof AI_MODELS[number]['value']
+
+// 初始化 mermaid
+mermaid.initialize({
+  startOnLoad: true,
+  theme: 'default',
+})
+
+// Mermaid 组件
+const MermaidDiagram = ({ content }: { content: string }) => {
+  const elementId = `mermaid-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+
+  useEffect(() => {
+    mermaid.run({
+      nodes: document.querySelectorAll(`#${elementId}`)
+    })
+  }, [elementId, content])
+
+  return (
+    <div id={elementId} className="mermaid">
+      {content}
+    </div>
+  )
+}
 
 export default function ChatTestPage() {
   // 聊天相关状态
@@ -327,7 +353,29 @@ export default function ChatTestPage() {
                   key={`msg-${index}-${msg.slice(0,10)}`}
                   className="text-sm prose prose-sm max-w-none dark:prose-invert"
                 >
-                  <ReactMarkdown>
+                  <ReactMarkdown
+                    remarkPlugins={[remarkGfm]}
+                    components={{
+                      // 支持 mermaid 图表
+                      code: ({ node, className, children, ...props }) => {
+                        const match = /language-(\w+)/.exec(className || '')
+                        if (match && match[1] === 'mermaid') {
+                          return <MermaidDiagram content={String(children).trim()} />
+                        }
+                        return <code className={className} {...props}>{children}</code>
+                      },
+                      // 优化表格样式
+                      table: ({ children }) => {
+                        return (
+                          <div className="overflow-x-auto">
+                            <table className="min-w-full divide-y divide-gray-200">
+                              {children}
+                            </table>
+                          </div>
+                        )
+                      }
+                    }}
+                  >
                     {msg}
                   </ReactMarkdown>
                 </div>
