@@ -8,14 +8,48 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { useEffect, useState } from 'react'
 import { api } from '@/lib/api'
 import { useProjectStore } from '@/stores/project'
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select'
 
+// Add AI models array at top level
+const AI_MODELS = [
+  {
+    value: 'qwen/qwen-turbo',
+    label: 'Qwen Turbo'
+  },
+  {
+    value: 'deepseek/deepseek-r1-distill-llama-70b',
+    label: 'Deepseek R1 Distill 70B'
+  },
+  {
+    value: 'deepseek/deepseek-r1',
+    label: 'Deepseek R1'
+  },
+  {
+    value: 'deepseek/deepseek-chat',
+    label: 'Deepseek Chat V3'
+  },
+  {
+    value: 'openai/gpt-4o-mini',
+    label: 'GPT-4o-mini'
+  },
+  {
+    value: 'anthropic/claude-3.5-haiku-20241022',
+    label: 'Claude 3.5 Haiku'
+  },
+  {
+    value: 'google/gemini-2.0-flash-001',
+    label: 'gemini-2.0'
+  }
+] as const
+
+type AIModel = typeof AI_MODELS[number]['value']
 
 export function RecommendedActions({ 
   projectId, 
   onActionClick 
 }: { 
   projectId: string
-  onActionClick: (action: string) => void 
+  onActionClick: (action: string, model: string) => void
 }) {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -23,6 +57,9 @@ export function RecommendedActions({
   const setRecommendations = useProjectStore(state => state.setRecommendations)
   const allRecommendations = useProjectStore(state => state.recommendations)
   const recommendations = allRecommendations[projectId] || []
+
+  // Add model selection state
+  const [selectedModel, setSelectedModel] = useState<AIModel>('deepseek/deepseek-r1-distill-llama-70b')
 
   useEffect(() => {
     let mounted = true
@@ -119,7 +156,7 @@ export function RecommendedActions({
                     <motion.button
                       whileHover={{ scale: 1.02 }}
                       whileTap={{ scale: 0.98 }}
-                      onClick={() => onActionClick(action)}
+                      onClick={() => onActionClick(action, selectedModel)}
                       className="relative w-full text-left p-6"
                     >
                       <div className="flex items-start gap-4">
@@ -150,6 +187,25 @@ export function RecommendedActions({
           </motion.div>
         </AnimatePresence>
       </ScrollArea>
+
+      {/* Add model selector */}
+      <div className="mt-4 flex justify-end">
+        <Select
+          value={selectedModel}
+          onValueChange={(value: AIModel) => setSelectedModel(value)}
+        >
+          <SelectTrigger className="w-[200px]">
+            <SelectValue placeholder="选择AI模型" />
+          </SelectTrigger>
+          <SelectContent>
+            {AI_MODELS.map(({ value, label }) => (
+              <SelectItem key={value} value={value}>
+                {label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
     </motion.div>
   )
 } 

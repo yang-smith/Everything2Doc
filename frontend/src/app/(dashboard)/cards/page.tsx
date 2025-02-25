@@ -27,7 +27,7 @@ export default function Page() {
   const [leftWidth, setLeftWidth] = useState('55%')
   const [isDragging, setIsDragging] = useState(false)
 
-  const handleStreamDocument = async (actionTitle: string) => {
+  const handleStreamDocument = async (actionTitle: string, model: string) => {
     setDocumentContent({ content: '', isLoading: true, error: undefined })
     
     try {
@@ -40,7 +40,9 @@ export default function Page() {
           })
         }
         else{
-          eventSource = api.createDocStream(currentProjectId, actionTitle)
+          console.log('actionTitle', actionTitle)
+          console.log('model', model)
+          eventSource = api.createDocStream(currentProjectId, actionTitle, model)
         }
 
         setDocumentContent(prev => ({

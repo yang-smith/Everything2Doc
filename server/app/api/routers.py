@@ -344,10 +344,15 @@ def stream_doc(project_id: str):
     try:
         if request.method == 'GET':
             doc_type = request.args.get('doc_type')
+            model = request.args.get('model')
         else:
             data = request.get_json() or {}
             doc_type = data.get('doc_type')
+            model = data.get('model')
         
+        if not model or model == 'undefined':
+            model = 'deepseek/deepseek-r1-distill-llama-70b'
+
         current_app.logger.info(f"收到文档生成请求: doc_type={doc_type}")
         
         chat_content = document_service.get_project_chat_content(project_id)
@@ -361,7 +366,7 @@ def stream_doc(project_id: str):
             stream = generate_doc(
                 chat_records=chat_content,
                 doc_type=doc_type,
-                model="deepseek/deepseek-r1-distill-llama-70b"
+                model=model
             )
             
             # 创建SSE响应

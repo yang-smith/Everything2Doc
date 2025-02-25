@@ -236,7 +236,7 @@ export const api = {
     //   )
     //   .slice(1, 4);
       // return [...result, '最近一个月的总结'];
-      return ['常见问答文档', '最近一个月的总结']
+      return ['常见问答文档', '干货文档', '最近一个月的总结']
   },
 
   async getProjects(): Promise<Project[]> {
@@ -286,13 +286,19 @@ export const api = {
     });
   },
 
-  createDocStream(projectId: string, docType: string): EventSource {
+  createDocStream(projectId: string, docType: string, model: string): EventSource {
     let encodedDocType = encodeURIComponent(docType);
     if (docType == '常见问答文档'){
       encodedDocType = 'QA';
     }
+    if (docType == '干货文档'){
+      encodedDocType = 'knowledge';
+    }
+    if (docType == '最近一个月的总结'){
+      encodedDocType = 'summary';
+    }
     const eventSource = new EventSource(
-      `${API_BASE}/api/projects/${projectId}/doc_stream?doc_type=${encodedDocType}`
+      `${API_BASE}/api/projects/${projectId}/doc_stream?doc_type=${encodedDocType}&model=${model}`
     );
     return eventSource;
   },

@@ -199,7 +199,7 @@ class DocumentService:
             for segment in reversed(saved_segments):
                 try:
                     logger.info(f"Processing cards for segment {segment.id}")
-                    cards_service.process_segment(project_id, segment.id)
+                    # cards_service.process_segment(project_id, segment.id)
                 except Exception as e:
                     logger.error(f"Error processing cards for segment {segment.id}: {str(e)}")
                     continue

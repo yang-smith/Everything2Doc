@@ -20,6 +20,7 @@ from ..prompt.prompt import (
     PROMPT_GEN_PART_DOC,
     PROMPT_MERGE_DOC,
     PROMPT_GEN_QA,
+    PROMPT_DRY_CONTENT,
 )
 from .gen_structure import gen_structure
 from dataclasses import dataclass
@@ -306,7 +307,6 @@ def generate_monthly_summary(chat_records: str, model: str = "deepseek-reasoner"
 
 def generate_QA(chat_records: str, model: str = "deepseek-reasoner"):
     QA = ai_chat(message=PROMPT_GEN_QA.format(chat_records=chat_records), model=model)
-    print("generate QA")
     return QA
 
 
@@ -471,15 +471,13 @@ async def process_chunk_parallel_async(chunks: List[str],
     
     async def process_single_chunk(chunk: str, chunk_index: int) -> tuple[int, Optional[str]]:
         try:
-            print(f"\nProcessing chunk {chunk_index}")
-            print(f"Chunk size: {len(chunk)} characters")
-            print(f"Chunk tokens: {num_tokens_from_string(chunk)}")
-            
             # 构建提示
             if doc_type == "recent_month_summary":
                 prompt = PROMPT_MONTHLY_SUMMARY.format(chat_records=chunk)
             elif doc_type == "QA":
                 prompt = PROMPT_GEN_QA.format(chat_records=chunk)
+            elif doc_type == "knowledge":
+                prompt = PROMPT_DRY_CONTENT.format(chat_records=chunk)
             else:
                 prompt = PROMPT_GEN_PART_DOC.format(chat_records=chunk, doc_type=doc_type)
             
@@ -499,8 +497,6 @@ async def process_chunk_parallel_async(chunks: List[str],
                     print(f"Warning: Whitespace-only response for chunk {chunk_index}")
                     return chunk_index, None
                 
-                print(f"Successfully processed chunk {chunk_index}")
-                print(f"Response length: {len(summary)} characters")
                 return chunk_index, summary
                 
             except Exception as e:
@@ -766,9 +762,7 @@ def generate_doc(chat_records: str, doc_type: str, model: str = "deepseek-reason
     
     iteration = 1
     while current_tokens > max_tokens:
-        print(f"\nIteration {iteration} - Reducing document size...")
-        print(f"Current tokens: {current_tokens} (Max allowed: {max_tokens})")
-        
+
         print("3.1 Resuming part docs...")
         part_docs = resume_part_docs(part_docs)
         print(f"Resumed into {len(part_docs)} groups")

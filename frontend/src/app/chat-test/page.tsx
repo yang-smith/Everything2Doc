@@ -55,12 +55,16 @@ const AI_MODELS = [
     label: 'Deepseek Chat'
   },
   {
-    value: 'openai/gpt-4o-2024-11-20',
-    label: 'GPT-4O'
+    value: 'openai/gpt-4o-mini',
+    label: 'GPT-4o-mini'
   },
   {
     value: 'anthropic/claude-3.5-haiku-20241022',
     label: 'Claude 3.5 Haiku'
+  },
+  {
+    value: 'google/gemini-2.0-flash-001',
+    label: 'gemini-2.0'
   }
 ] as const
 
@@ -275,7 +279,8 @@ export default function ChatTestPage() {
     try {
       const eventSource = api.createDocStream(
         'd44c4112-0987-4a1b-a7e2-1dd2f4f8e55a', 
-        selectedDocType
+        selectedDocType,
+        selectedModel
       )
 
       eventSource.onmessage = (event) => {
