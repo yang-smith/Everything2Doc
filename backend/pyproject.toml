@@ -1,0 +1,61 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "everything2doc-backend"
+version = "0.1.0"
+description = "将聊天记录转换为结构化文档的 FastAPI 后端"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [
+    { name = "Everything2Doc Team" }
+]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Framework :: FastAPI",
+]
+dependencies = [
+    "fastapi>=0.95.0",
+    "uvicorn[standard]>=0.20.0",
+    "sqlalchemy>=2.0.0",
+    "psycopg2-binary>=2.9.5",
+    "pydantic>=2.0",
+    "pydantic-settings<3.0.0,>=2.2.1",
+    "python-dotenv>=1.0.0",
+    "openai>=1.0.0",
+    "tiktoken>=0.4.0",
+    "asyncio>=3.4.3",
+    "aiolimiter>=1.1.0",
+    "tqdm>=4.65.0",
+    "python-multipart>=0.0.6",
+    "httpx<1.0.0,>=0.25.1",
+    "psycopg[binary]<4.0.0,>=3.1.13",
+]
+
+[project.urls]
+"Homepage" = "https://https://everything2doc.pages.dev/"
+"Source" = "https://github.com/yang-smith/Everything2Doc"
+
+[tool.hatch.build.targets.wheel]
+packages = ["app"]
+
+[tool.hatch.dependencies]
+dev = [
+    "pytest>=7.0.0",
+    "black>=23.0.0",
+    "flake8>=6.0.0",
+    "mypy>=1.0.0",
+    "isort>=5.12.0",
+]
+
+[tool.black]
+line-length = 100
+target-version = ['py310']
+
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = "test_*.py"

@@ -1,0 +1,51 @@
+# fly.toml app configuration file generated for e2d-backend on 2025-03-03T16:09:32+08:00
+#
+# See https://fly.io/docs/reference/configuration/ for information about how to use this file.
+#
+
+app = 'e2d-backend'
+primary_region = 'hkg'
+
+[build]
+  dockerfile = 'Dockerfile'
+
+[env]
+  API_V1_STR = '/api'
+  BACKEND_CORS_ORIGINS = 'https://everything2doc.pages.dev'
+  ENVIRONMENT = 'production'
+  MAX_WORKERS = '10'
+  PROJECT_FOLDER = '/data/projects'
+
+[[mounts]]
+  source = 'e2d_data'
+  destination = '/data'
+  # 添加自动扩展配置，避免磁盘空间不足
+  auto_extend_size_threshold = 80
+  auto_extend_size_increment = "1GB"
+  auto_extend_size_limit = "10GB"
+
+[http_service]
+  internal_port = 8000
+  force_https = true
+  auto_stop_machines = 'stop'
+  auto_start_machines = true
+  min_machines_running = 1
+  
+  # 配置并发请求限制
+  [http_service.concurrency]
+    type = "requests"
+    soft_limit = 500
+    hard_limit = 1000
+
+  [[http_service.checks]]
+    interval = '30s'
+    timeout = '5s'
+    grace_period = '30s'
+    method = 'GET'
+    path = '/api/health'
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = '512mb'
+  cpu_kind = 'shared'
+  cpus = 1

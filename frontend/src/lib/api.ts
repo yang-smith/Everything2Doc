@@ -2,7 +2,7 @@ import { OutputDocument } from "@/types/workspace";
 import { Segment, Card, ProjectOverview } from '@/types/type-cards'
 import { Project } from '@/types/workspace'
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 // const API_BASE = 'https://e2dserver.fly.dev';
 
 export type ProcessingStatus = 'pending' | 'processing' | 'completed' | 'error'
@@ -56,7 +56,7 @@ export const api = {
  async uploadFile(projectId: string, file: File, onProgress?: (progress: number) => void): Promise<void> {
     const formData = new FormData();
     formData.append('file', file);
-    formData.append('projectId', projectId);
+    formData.append('project_id', projectId);
 
     const xhr = new XMLHttpRequest();
     
@@ -240,7 +240,7 @@ export const api = {
   },
 
   async getProjects(): Promise<Project[]> {
-    const response = await fetch(`${API_BASE}/api/all_projects`)
+    const response = await fetch(`${API_BASE}/api/projects`)
     if (!response.ok) {
       throw new Error('Failed to fetch projects')
     }
@@ -298,7 +298,7 @@ export const api = {
       encodedDocType = 'summary';
     }
     const eventSource = new EventSource(
-      `${API_BASE}/api/projects/${projectId}/doc_stream?doc_type=${encodedDocType}&model=${model}`
+      `${API_BASE}/api/chat/${projectId}/doc_stream?doc_type=${encodedDocType}&model=${model}`
     );
     return eventSource;
   },

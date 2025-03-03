@@ -90,8 +90,7 @@ export function Sidebar() {
               {projects.map((project) => (
                 <Link
                   key={project.id}
-                  href={`/cards?project=${project.id}`}
-                  onClick={() => setCurrentProject(project.id)}
+                  href={`/workspace?id=${project.id}`}
                   className={cn(
                     "flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors",
                     "hover:bg-accent hover:text-accent-foreground",
@@ -99,6 +98,7 @@ export function Sidebar() {
                       ? "bg-accent text-accent-foreground"
                       : "text-muted-foreground"
                   )}
+                  onClick={() => setCurrentProject(project.id)}
                   title={collapsed ? project.name : undefined}
                 >
                   <FolderOpen className="h-4 w-4 flex-shrink-0" />

@@ -170,7 +170,7 @@ export default function Page() {
 
   return (
     <div className="flex h-[calc(100vh-theme(spacing.16))] cards-container">
-      <motion.div 
+      {/* <motion.div 
         className="relative flex flex-col rounded-lg bg-card border shadow-sm"
         style={{ width: timelineWidth }}
         initial={false}
@@ -184,8 +184,8 @@ export default function Page() {
           className="absolute -right-2 top-0 bottom-0 w-1 cursor-col-resize z-20 hover:bg-primary/30 active:bg-primary/50"
           onMouseDown={handleMouseDown}
         />
-      </motion.div>
-
+      </motion.div> */}
+      
       {/* 右侧内容区 */}
       <motion.div 
         className="flex-1 min-w-0 relative flex flex-col rounded-lg bg-card border shadow-sm ml-4"

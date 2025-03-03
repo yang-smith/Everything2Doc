@@ -22,4 +22,9 @@ output
 logs
 .next/
 examples/
-backend/
+.cursor/
+src/everything2doc.egg-info/
+
+backend/venv/
+backend/projects/
+
