@@ -51,7 +51,7 @@ export default function Home() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.2 }}
           >
-            <Link href="/cards">
+            <Link href="/workspace">
               <Button size="lg" className="gap-2 bg-gradient-to-r from-primary to-primary/90 hover:from-primary/90 hover:to-primary">
                 开始使用 <ArrowRight className="h-4 w-4" />
               </Button>
@@ -134,7 +134,7 @@ export default function Home() {
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
           >
-            <Link href="/cards">
+            <Link href="/workspace">
               <Button size="lg" className="mt-6 gap-2 bg-gradient-to-r from-primary to-primary/90 hover:from-primary/90 hover:to-primary">
                 免费开始使用 <ArrowRight className="h-4 w-4" />
               </Button>
