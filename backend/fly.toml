@@ -19,7 +19,6 @@ primary_region = 'hkg'
 [[mounts]]
   source = 'e2d_data'
   destination = '/data'
-  # 添加自动扩展配置，避免磁盘空间不足
   auto_extend_size_threshold = 80
   auto_extend_size_increment = "1GB"
   auto_extend_size_limit = "10GB"
@@ -29,23 +28,28 @@ primary_region = 'hkg'
   force_https = true
   auto_stop_machines = 'stop'
   auto_start_machines = true
-  min_machines_running = 1
+  min_machines_running = 0
+  auto_stop_grace_period = "30m" 
   
-  # 配置并发请求限制
+  [http_service.timeouts]
+    read_timeout = "15m"    # 读取超时15分钟
+    write_timeout = "15m"   # 写入超时15分钟
+    idle_timeout = "15m"    # 空闲超时15分钟
+
   [http_service.concurrency]
     type = "requests"
     soft_limit = 500
     hard_limit = 1000
 
   [[http_service.checks]]
-    interval = '30s'
+    interval = '5m'
     timeout = '5s'
     grace_period = '30s'
     method = 'GET'
-    path = '/api/health'
+    path = '/health'
 
 [[vm]]
-  size = "shared-cpu-1x"
-  memory = '512mb'
+  size = "shared-cpu-2x"  # 从1x升级到2x
+  memory = '1024mb'       # 通常CPU增加时也需要增加内存
   cpu_kind = 'shared'
-  cpus = 1
+  cpus = 2   

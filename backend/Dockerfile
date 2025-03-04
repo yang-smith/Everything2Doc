@@ -21,6 +21,8 @@ COPY . .
 ENV PYTHONPATH=/app
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
+ENV ENVIRONMENT=production
+ENV PROJECT_FOLDER=/data/projects
 
 # 创建项目文件夹
 RUN mkdir -p /data/projects
@@ -29,4 +31,4 @@ RUN mkdir -p /data/projects
 EXPOSE 8000
 
 # 启动命令
-CMD ["uvicorn", "backend.main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]

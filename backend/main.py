@@ -11,7 +11,7 @@ from app.core.config import settings
 from app.api.routers import router as api_router
 from app.db.models import Base
 from app.db.database import engine
-from app.db.init_db import init_db  # 导入初始化数据库函数
+from app.db.init_db import init_db  
 
 # Configure logging
 logging.basicConfig(
@@ -47,7 +47,7 @@ app.add_middleware(
 async def startup_db_client():
     try:
         # Initialize database
-        init_db()
+        # init_db()
         # Create table structure
         Base.metadata.create_all(bind=engine)
         logger.info("Database initialization completed and created table structure")

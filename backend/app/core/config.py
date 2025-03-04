@@ -36,7 +36,10 @@ class Settings(BaseSettings):
     ENVIRONMENT: Literal["development", "production", "testing"] = "development"
     
     # 前端主机设置
-    FRONTEND_HOST: str = "http://localhost:3000"  # 修改为您的前端地址
+    if ENVIRONMENT == "production":
+        FRONTEND_HOST: str = "https://everything2doc.pages.dev"
+    else:
+        FRONTEND_HOST: str = "http://localhost:3000"  # 修改为您的前端地址
     
     # CORS 设置
     BACKEND_CORS_ORIGINS: Annotated[
@@ -81,7 +84,7 @@ class Settings(BaseSettings):
     OPENROUTER_API_BASE: Optional[str] = None
     
     # 文件存储
-    PROJECT_FOLDER: str = os.path.join(os.getcwd(), "projects")
+    PROJECT_FOLDER: str = os.getenv("PROJECT_FOLDER", os.path.join(os.getcwd(), "projects"))
     
     # 线程池设置
     MAX_WORKERS: int = 10
