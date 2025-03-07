@@ -416,7 +416,7 @@ async def generate_doc_async(chat_records: str, doc_type: str, model: str = "dee
     logger.info(f"使用模型: {model}")
     
     logger.info(f"1. 将聊天记录分割为段落...")
-    segments = split_by_tokens(chat_records, max_tokens=100000)
+    segments = split_by_tokens(chat_records, max_tokens=max_tokens)
     logger.info(f"创建了 {len(segments)} 个段落")
     
     total_tokens = sum(num_tokens_from_string(s) for s in segments)

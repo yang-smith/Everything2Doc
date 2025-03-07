@@ -2,6 +2,7 @@ import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { UploadArea } from "./file-upload/upload-area"
 import { FileList } from "./file-upload/file-list"
+import { TextInputArea } from "./file-upload/text-input-area"
 import { useToast } from "@/hooks/use-toast"
 import { api } from "@/lib/api"
 
@@ -24,6 +25,15 @@ export function UploadSection({ onComplete }: UploadSectionProps) {
   const handleFilesSelected = (newFiles: File[]) => {
     const fileStatus = {
       file: newFiles[0],
+      progress: 0,
+      status: 'pending' as const
+    };
+    setFiles([fileStatus]);
+  };
+
+  const handleTextSubmit = (file: File) => {
+    const fileStatus = {
+      file,
       progress: 0,
       status: 'pending' as const
     };
@@ -105,9 +115,20 @@ export function UploadSection({ onComplete }: UploadSectionProps) {
         <div className="space-y-4">
           <UploadArea 
             onFilesSelected={handleFilesSelected}
-            accept=".txt"
+            accept=".txt,.csv"
             multiple={false}
           />
+          
+          <div className="relative">
+            <div className="absolute inset-0 flex items-center">
+              <span className="w-full border-t" />
+            </div>
+            <div className="relative flex justify-center text-xs uppercase">
+              <span className="bg-card px-2 text-muted-foreground">或者</span>
+            </div>
+          </div>
+          
+          <TextInputArea onTextSubmit={handleTextSubmit} />
         </div>
         
         {files.length > 0 && (

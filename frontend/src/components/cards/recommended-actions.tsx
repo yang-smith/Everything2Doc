@@ -13,32 +13,12 @@ import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@
 // Add AI models array at top level
 const AI_MODELS = [
   {
-    value: 'qwen/qwen-turbo',
-    label: 'Qwen Turbo'
-  },
-  {
-    value: 'deepseek/deepseek-r1-distill-llama-70b',
-    label: 'Deepseek R1 Distill 70B'
-  },
-  {
-    value: 'deepseek/deepseek-r1',
-    label: 'Deepseek R1'
-  },
-  {
-    value: 'deepseek/deepseek-chat',
-    label: 'Deepseek Chat V3'
-  },
-  {
-    value: 'openai/gpt-4o-mini',
-    label: 'GPT-4o-mini'
-  },
-  {
-    value: 'anthropic/claude-3.5-haiku-20241022',
-    label: 'Claude 3.5 Haiku'
-  },
-  {
     value: 'google/gemini-2.0-flash-001',
-    label: 'gemini-2.0'
+    label: 'gemini-2.0（超快）'
+  },
+  {
+    value: 'perplexity/r1-1776',
+    label: 'Deepseek R1 (慢，但是质量高)'
   }
 ] as const
 
@@ -59,7 +39,7 @@ export function RecommendedActions({
   const recommendations = allRecommendations[projectId] || []
 
   // Add model selection state
-  const [selectedModel, setSelectedModel] = useState<AIModel>('deepseek/deepseek-r1-distill-llama-70b')
+  const [selectedModel, setSelectedModel] = useState<AIModel>('google/gemini-2.0-flash-001')
 
   useEffect(() => {
     let mounted = true
