@@ -1,8 +1,8 @@
 import { OutputDocument } from "@/types/workspace";
-import { Segment, Card, ProjectOverview } from '@/types/type-cards'
+import { ProjectOverview } from '@/types/type-cards'
 import { Project } from '@/types/workspace'
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+export const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 // const API_BASE = 'https://e2dserver.fly.dev';
 
 export type ProcessingStatus = 'pending' | 'processing' | 'completed' | 'error'
@@ -33,17 +33,21 @@ export interface OutlineResult {
   error?: string;
 }
 
-export interface ProjectCardsResponse {
-  cards: Card[];
-  status: 'completed' | 'processing';
-}
+
 
 export const api = {
   // 创建项目
   async createProject(name: string): Promise<string> {
+    const token = localStorage.getItem("token");
+    if (!token) {
+      throw new Error("Token is missing, please login first");
+    }
     const response = await fetch(`${API_BASE}/api/projects`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        "Authorization": `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
       body: JSON.stringify({ name })
     });
 
@@ -92,47 +96,7 @@ export const api = {
     return response.json()
   },
 
-  // 开始生成大纲
-  async generateOutline(projectId: string): Promise<string> {
-    const response = await fetch(`${API_BASE}/api/projects/${projectId}/outline`, {
-      method: 'POST',
-    });
-    
-    if (!response.ok) {
-      throw new Error('Failed to generate outline');
-    }
-    
-    const data = await response.json();
-    if(data.outline) {
-      return data.outline;
-    } else {
-      throw new Error('no outline');
-    }
-  },
 
-  // 获取大纲生成状态
-  async getOutlineStatus(taskId: string): Promise<OutlineResult> {
-    const response = await fetch(`${API_BASE}/api/tasks/${taskId}`);
-    
-    if (!response.ok) {
-      throw new Error('Failed to get outline status');
-    }
-    
-    return response.json();
-  },
-
-  async updateOutline(projectId: string, content: string): Promise<void> {
-    const response = await fetch(`${API_BASE}/api/projects/${projectId}/outline`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ content })
-    });
-
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.error || 'Failed to update outline');
-    }
-  },
 
   async startProcessing(projectId: string): Promise<void> {
     const response = await fetch(`${API_BASE}/api/projects/${projectId}/start_processing`, {
@@ -162,44 +126,9 @@ export const api = {
     return data.content
   },
 
-  //cards部分
 
-  async getProjectSegments(projectId: string): Promise<Segment[]> {
-    const response = await fetch(`${API_BASE}/api/projects/${projectId}/segments`)
-    if (!response.ok) {
-      throw new Error('Failed to fetch segments')
-    }
-    return response.json()
-  },
 
-  async getSegmentStatus(segmentId: string): Promise<Segment> {
-    const response = await fetch(`${API_BASE}/api/segments/${segmentId}/status`)
-    if (!response.ok) {
-      throw new Error('Failed to fetch segment status')
-    }
-    return response.json()
-  },
 
-  async getSegmentCards(segmentId: string): Promise<Card[]> {
-    const response = await fetch(`${API_BASE}/api/segments/${segmentId}/cards`)
-    if (!response.ok) {
-      throw new Error('Failed to fetch segment cards')
-    }
-    const data = await response.json()
-    return data.cards
-  },
-
-  async getProjectCards(projectId: string): Promise<ProjectCardsResponse> {
-    const response = await fetch(`${API_BASE}/api/projects/${projectId}/cards`)
-    if (!response.ok) {
-      throw new Error('Failed to fetch project cards')
-    }
-    const data = await response.json()
-    return {
-      cards: data.cards,
-      status: data.status
-    }
-  },
 
   async getProjectOverview(projectId: string): Promise<ProjectOverview> {
     const response = await fetch(`${API_BASE}/api/projects/${projectId}/overview`)
@@ -240,12 +169,20 @@ export const api = {
   },
 
   async getProjects(): Promise<Project[]> {
-    const response = await fetch(`${API_BASE}/api/projects`)
-    if (!response.ok) {
-      throw new Error('Failed to fetch projects')
+    const token = localStorage.getItem("token");
+    if (!token) {
+      throw new Error("Token is missing, please login first");
     }
-    const data = await response.json()
-    return data
+    const response = await fetch(`${API_BASE}/api/projects`, {
+      headers: {
+        "Authorization": `Bearer ${token}`,
+      },
+    });
+    if (!response.ok) {
+      throw new Error('Failed to fetch projects');
+    }
+    const data = await response.json();
+    return data;
   },
 
   async getProjectContent(projectId: string): Promise<string> {

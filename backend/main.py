@@ -5,13 +5,11 @@ from fastapi.responses import JSONResponse
 from datetime import datetime
 import uvicorn
 import os
-import psycopg
+from sqlmodel import SQLModel
 
 from app.core.config import settings
 from app.api.routers import router as api_router
-from app.db.models import Base
-from app.db.database import engine
-from app.db.init_db import init_db  
+from app.core.db import engine, create_db_and_tables
 
 # Configure logging
 logging.basicConfig(
@@ -25,7 +23,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # Create database tables
-Base.metadata.create_all(bind=engine)
+create_db_and_tables()
 
 # Create FastAPI app
 app = FastAPI(
@@ -46,13 +44,10 @@ app.add_middleware(
 @app.on_event("startup")
 async def startup_db_client():
     try:
-        # Initialize database
-        # init_db()
-        # Create table structure
-        Base.metadata.create_all(bind=engine)
-        logger.info("Database initialization completed and created table structure")
+        create_db_and_tables()
+        logger.info("数据库初始化完成并创建了表结构")
     except Exception as e:
-        logger.error(f"Database initialization failed: {str(e)}")
+        logger.error(f"数据库初始化失败: {str(e)}")
 
 # Include API routers
 app.include_router(api_router, prefix=settings.API_V1_STR)

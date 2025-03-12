@@ -2,12 +2,13 @@ from typing import List
 from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, Form, BackgroundTasks
 from sqlalchemy.orm import Session
 
-from ...db.database import get_db
-from ...models.schemas import (
-    DocumentResponse, ProcessingStatusResponse,
-    StartProcessingResponse, ProjectOverviewResponse, ProjectContentResponse,
+from app.core.db import get_db
+from app.models.schemas import (
+    DocumentResponse,
+    ProjectOverviewResponse,
+    ProjectContentResponse,
 )
-from ...services.document_service import DocumentService
+from app.services.document_service import DocumentService
 
 router = APIRouter()
 document_service = DocumentService()

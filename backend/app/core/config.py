@@ -32,7 +32,8 @@ class Settings(BaseSettings):
     # API 基础配置
     PROJECT_NAME: str = "Everything2Doc API"
     API_V1_STR: str = "/api"
-    SECRET_KEY: str = secrets.token_urlsafe(32)
+    SECRET_KEY: str = os.getenv("SECRET_KEY")
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 8
     ENVIRONMENT: Literal["development", "production", "testing"] = "development"
     
     # 前端主机设置
@@ -55,25 +56,10 @@ class Settings(BaseSettings):
         return [str(origin).rstrip("/") for origin in self.BACKEND_CORS_ORIGINS] + [
             self.FRONTEND_HOST
         ]
+
     
-    # 数据库设置
-    POSTGRES_SERVER: str = os.getenv("POSTGRES_SERVER", "localhost")
-    POSTGRES_USER: str = os.getenv("POSTGRES_USER", "postgres")
-    POSTGRES_PASSWORD: str = os.getenv("POSTGRES_PASSWORD", "postgres")
-    POSTGRES_DB: str = os.getenv("POSTGRES_DB", "everything2doc")
-    POSTGRES_PORT: int = int(os.getenv("POSTGRES_PORT", "5432"))
-    
-    @computed_field  # type: ignore[prop-decorator]
-    @property
-    def SQLALCHEMY_DATABASE_URI(self) -> PostgresDsn:
-        return MultiHostUrl.build(
-            scheme="postgresql+psycopg",
-            username=self.POSTGRES_USER,
-            password=self.POSTGRES_PASSWORD,
-            host=self.POSTGRES_SERVER,
-            port=self.POSTGRES_PORT,
-            path=self.POSTGRES_DB,
-        )
+    # 数据库配置
+    DATABASE_URL: PostgresDsn = os.getenv("DATABASE_URL")
     
     # AI 服务配置
     OPENAI_API_KEY: Optional[str] = None
@@ -86,21 +72,9 @@ class Settings(BaseSettings):
     # 文件存储
     PROJECT_FOLDER: str = os.getenv("PROJECT_FOLDER", os.path.join(os.getcwd(), "projects"))
     
-    # 线程池设置
     MAX_WORKERS: int = 10
     
-    @computed_field
-    @property
-    def DATABASE_URL(self) -> PostgresDsn:
-        """构建PostgreSQL连接URL（使用Pydantic的MultiHostUrl）"""
-        return MultiHostUrl.build(
-            scheme="postgresql+psycopg",
-            username=self.POSTGRES_USER,
-            password=self.POSTGRES_PASSWORD,
-            host=self.POSTGRES_SERVER,
-            port=self.POSTGRES_PORT,
-            path=self.POSTGRES_DB,
-        )
+
     
     @model_validator(mode="after")
     def create_project_folder(self) -> "Settings":

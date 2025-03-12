@@ -5,15 +5,15 @@ from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 
-from ...db.database import get_db
-from ...models.schemas import ChatRequest, MonthSummaryRequest, DocStreamRequest
-from ...services.document_service import DocumentService
-from ...utils.stream_handler import ai_stream_endpoint
-from ...libs.utils.ai_chat_client import (
+from app.core.db import get_db
+from app.models.schemas import ChatRequest, MonthSummaryRequest, DocStreamRequest
+from app.services.document_service import DocumentService
+from app.utils.stream_handler import ai_stream_endpoint
+from app.libs.utils.ai_chat_client import (
     ai_chat_stream, 
     ai_chat_stream_async
 )
-from ...libs.core.worker import (
+from app.libs.core.worker import (
     generate_recent_month_summary, 
     generate_doc_async
 )

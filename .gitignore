@@ -27,4 +27,4 @@ src/everything2doc.egg-info/
 
 backend/venv/
 backend/projects/
-
+backend/alembic.ini

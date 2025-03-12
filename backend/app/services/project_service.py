@@ -1,61 +1,70 @@
 from datetime import datetime
-from typing import List
-from sqlalchemy.orm import Session
-from ..db.models import Project
+from typing import List, Optional, Dict, Any
+from sqlmodel import Session, select
+import logging
+
+from app.models.project import Project, ProjectStatus
+
+logger = logging.getLogger(__name__)
 
 class ProjectService:
     @staticmethod
-    def create_project(db: Session, name: str) -> Project:
-        """Create new project"""
+    def create_project(db: Session, name: str, user_id: Optional[str] = None) -> Dict[str, Any]:
+        """Create new project with user association"""
         try:
             project = Project(
                 name=name,
-                status='draft',
-                created_at=datetime.utcnow()
+                status=ProjectStatus.DRAFT,
+                created_at=datetime.utcnow(),
+                user_id=user_id
             )
             db.add(project)
             db.commit()
             db.refresh(project)
             
-            return {
-                "id": str(project.id),
-                "name": project.name,
-                "status": project.status,
-                "created_at": project.created_at,
-                "updated_at": project.updated_at
-            }
-            
+            return project.to_dict()
         except Exception as e:
             db.rollback()
             raise e
-
-    @staticmethod
-    def get_all_projects(db: Session) -> List[dict]:
-        """Get all projects"""
-        projects = db.query(Project).all()
-        if projects:
-            return [
-                {
-                    "id": str(project.id),
-                    "name": project.name,
-                    "status": project.status,
-                    "created_at": project.created_at,
-                    "updated_at": project.updated_at
-                }
-                for project in projects
-            ]
-        return []  # 返回空列表比返回None更符合类型提示List[dict]
     
     @staticmethod
-    def get_project(db: Session, project_id: str) -> Project:
+    def get_all_projects(db: Session, user_id: Optional[str] = None) -> List[Dict[str, Any]]:
+        """Get all projects or filter by user_id"""
+        try:
+            query = select(Project)
+            
+            if user_id:
+                query = query.where(Project.user_id == user_id)
+                
+                projects = db.exec(query).all()
+                return [project.to_dict() for project in projects] if projects else []
+            else:
+                return []
+        except Exception as e:
+            logger.error("Error getting projects: %s", str(e))
+            raise e
+            
+
+    @staticmethod
+    def get_project(db: Session, project_id: str) -> Optional[Dict[str, Any]]:
         """Get project by ID"""
-        result = db.query(Project).filter(Project.id == project_id).first() 
-        if result:
-            return {
-                "id": str(result.id),
-                "name": result.name,
-                "status": result.status,
-                "created_at": result.created_at,
-                "updated_at": result.updated_at
-            }
-        return None
+        project = db.exec(select(Project).where(Project.id == project_id)).first()
+        return project.to_dict() if project else None
+    
+    @staticmethod
+    def update_project(db: Session, project_id: str, data: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+        """Update project"""
+        project = db.exec(select(Project).where(Project.id == project_id)).first()
+        if not project:
+            return None
+        
+        for key, value in data.items():
+            if hasattr(project, key):
+                setattr(project, key, value)
+        
+        project.updated_at = datetime.utcnow()
+        db.add(project)
+        db.commit()
+        db.refresh(project)
+        
+        return project.to_dict()

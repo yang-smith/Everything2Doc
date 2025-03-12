@@ -2,6 +2,7 @@ from typing import List, Optional, Dict, Any
 from pydantic import BaseModel, Field
 from datetime import datetime
 from enum import Enum
+from sqlmodel import SQLModel
 
 # Project schemas
 class ProjectStatus(str, Enum):
@@ -9,18 +10,34 @@ class ProjectStatus(str, Enum):
     PROCESSING = 'processing'
     COMPLETED = 'completed'
 
-class ProjectBase(BaseModel):
-    name: str = "New Project"
+class ProjectBase(SQLModel):
+    name: str
 
 class ProjectCreate(ProjectBase):
     pass
+
+class ProjectUpdate(SQLModel):
+    name: Optional[str] = None
+    status: Optional[str] = None
 
 class ProjectResponse(ProjectBase):
     id: str
     status: str
     created_at: datetime
     updated_at: datetime
+    user_id: Optional[str] = None
     model_config = {"from_attributes": True}
+
+class ProjectOverviewResponse(SQLModel):
+    description: str
+    messageCount: int
+    totalTime: str
+    model_config = {"from_attributes": True}
+
+class ProjectContentResponse(SQLModel):
+    content: str
+    model_config = {"from_attributes": True}
+
 
 # Document schemas
 class DocumentStatus(str, Enum):
@@ -47,50 +64,25 @@ class DocumentResponse(BaseModel):
 
 
 # Output document schemas
-class OutputDocBase(BaseModel):
-    title: Optional[str] = None
-    status: str = 'generating'
-    progress: float = 0.0
+class OutputDocumentBase(SQLModel):
+    title: str
 
-class OutputDocCreate(OutputDocBase):
+class OutputDocumentCreate(OutputDocumentBase):
     project_id: str
 
-class OutputDocResponse(OutputDocBase):
+class OutputDocumentUpdate(SQLModel):
+    title: Optional[str] = None
+    status: Optional[str] = None
+    progress: Optional[float] = None
+
+class OutputDocumentResponse(OutputDocumentBase):
     id: str
     project_id: str
-    content: Optional[str] = None
+    status: str
+    progress: float
     created_at: datetime
     updated_at: datetime
-
-    class Config:
-        orm_mode = True
-
-# Chat segment schemas
-class SegmentStatus(str, Enum):
-    PENDING = 'pending'
-    PROCESSING = 'processing' 
-    COMPLETED = 'completed'
-    ERROR = 'error'
-
-class ChatSegmentBase(BaseModel):
-    segment_index: int
     content: Optional[str] = None
-    start_time: Optional[datetime] = None
-    end_time: Optional[datetime] = None
-    status: str = SegmentStatus.PENDING
-
-class ChatSegmentCreate(ChatSegmentBase):
-    project_id: str
-    document_id: str
-
-class ChatSegmentResponse(ChatSegmentBase):
-    id: str
-    project_id: str
-    document_id: str
-    created_at: datetime
-
-    class Config:
-        orm_mode = True
 
 # API response schemas
 class SuccessResponse(BaseModel):
@@ -99,31 +91,13 @@ class SuccessResponse(BaseModel):
 class ErrorResponse(BaseModel):
     error: str
 
-class ProcessingStatusResponse(BaseModel):
-    status: str
-    progress: float = 0.0
-
-class StartProcessingResponse(BaseModel):
-    task_id: str
-    status: str
-
-class ProjectOverviewResponse(BaseModel):
-    description: str
-    messageCount: int
-    totalTime: str
-
-
-class ProjectContentResponse(BaseModel):
-    content: str
-
+class MonthSummaryRequest(BaseModel):
+    month: str
+    year: str
 
 class ChatRequest(BaseModel):
     message: str
     model: Optional[str] = None
-
-class MonthSummaryRequest(BaseModel):
-    start_date: Optional[str] = None
-    end_date: Optional[str] = None
 
 class DocStreamRequest(BaseModel):
     doc_type: str

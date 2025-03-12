@@ -11,6 +11,7 @@ export interface Project {
   status: ProjectStatus
   createdAt: string
   updatedAt: string
+  user_id: string
 }
 
 // 输入文档
@@ -48,18 +49,6 @@ export interface OutputDocument {
   title: string
   content: string
   status: 'generating' | 'completed'
-  createdAt: string
-  updatedAt: string
-}
-
-// 处理任务
-export interface ProcessingTask {
-  id: string
-  projectId: string
-  type: 'outline_generation' | 'document_processing'
-  status: 'pending' | 'processing' | 'completed' | 'error'
-  progress: number
-  error?: string
   createdAt: string
   updatedAt: string
 }

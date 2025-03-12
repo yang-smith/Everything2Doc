@@ -7,9 +7,9 @@ from concurrent.futures import Future, ThreadPoolExecutor
 from sqlalchemy.orm import Session
 from fastapi import BackgroundTasks, UploadFile, HTTPException
 
-from ..db.models import InputDocument, OutputDocument, Project
-from ..utils.file_handler import FileHandler
-from ..libs.preprocessing.reader import read_file
+from app.models.project import InputDocument, OutputDocument, Project
+from app.utils.file_handler import FileHandler
+from app.libs.preprocessing.reader import read_file
 
 logger = logging.getLogger(__name__)
 
