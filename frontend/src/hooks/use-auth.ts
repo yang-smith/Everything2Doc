@@ -1,6 +1,6 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { auth_api } from "@/lib/auth"; // 这里假设 api 已经封装好 fetch 请求
+import { auth_api } from "@/lib/auth"; 
 
 export default function useAuth() {
   const router = useRouter();
