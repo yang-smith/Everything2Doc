@@ -169,13 +169,42 @@ export function VditorPreview({ content, isLoading, error, onBack, onContentChan
           <ChevronLeft className="h-4 w-4" />
           返回
         </Button>
-        <div className="text-sm text-muted-foreground">
-          {currentProjectId?.slice(0, 8)}
+        
+        {/* Document action buttons moved to header */}
+        <div className="flex items-center gap-2">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={handleDownloadMarkdown}
+            className="gap-1"
+          >
+            <FileText className="h-4 w-4" />
+            Markdown
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={handleDownloadPDF}
+            disabled={isPdfGenerating}
+            className="gap-1"
+          >
+            <FileDown className="h-4 w-4" />
+            {isPdfGenerating ? '生成中...' : 'PDF'}
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={handlePrint}
+            className="gap-1"
+          >
+            <FileText className="h-4 w-4" />
+            打印
+          </Button>
         </div>
       </div>
 
       {/* Content area */}
-      <div className="flex-1 overflow-auto p-6 document-viewer-content">
+      <div className="flex-1 overflow-auto p-3 document-viewer-content">
         {error ? (
           <div className="flex flex-col items-center justify-center h-full">
             <div className="text-destructive mb-2">
@@ -186,39 +215,6 @@ export function VditorPreview({ content, isLoading, error, onBack, onContentChan
           </div>
         ) : (
           <div className="relative h-full">
-            <div className="flex items-center justify-end p-2 border-b">
-              <div className="flex items-center gap-2">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={handleDownloadMarkdown}
-                  className="gap-1"
-                >
-                  <FileText className="h-4 w-4" />
-                  Markdown
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={handleDownloadPDF}
-                  disabled={isPdfGenerating}
-                  className="gap-1"
-                >
-                  <FileDown className="h-4 w-4" />
-                  {isPdfGenerating ? '生成中...' : 'PDF'}
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={handlePrint}
-                  className="gap-1"
-                >
-                  <FileText className="h-4 w-4" />
-                  打印
-                </Button>
-              </div>
-            </div>
-            
             <div id="vditor-preview" className="min-h-[500px] w-full" />
 
             {/* Loading indicator */}
