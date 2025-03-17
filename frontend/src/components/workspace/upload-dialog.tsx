@@ -2,8 +2,7 @@
 
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { UploadSection } from "@/components/workspace/upload-section"
-import { useRouter } from "next/navigation"
-import { useProjectStore } from "@/stores/project" // Assuming you have a project store
+import { useProjectStore } from "@/stores/project"
 
 interface UploadDialogProps {
   open: boolean
@@ -19,14 +18,13 @@ export function UploadDialog({ open, onOpenChange }: UploadDialogProps) {
     
     // Close dialog
     onOpenChange(false)
-
   }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[600px]">
         <DialogHeader>
-          <DialogTitle>新建项目</DialogTitle>
+          <DialogTitle>上传文件</DialogTitle>
         </DialogHeader>
         <UploadSection onComplete={handleUploadComplete} />
       </DialogContent>

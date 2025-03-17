@@ -51,50 +51,50 @@ export function UploadSection({ onComplete }: UploadSectionProps) {
     
     setUploading(true);
     try {
-    // 1. 创建项目
-    const name = files[0].file.name.replace(/\.[^/.]+$/, "");
-    const projectId = await api.createProject(name);
-    console.log('Got project ID:', projectId);
+      // 1. 创建项目
+      const name = files[0].file.name.replace(/\.[^/.]+$/, "");
+      const projectId = await api.createProject(name);
+      console.log('Got project ID:', projectId);
 
-    // 2. 逐个上传文件
-    let allSuccessful = true;
-    for (const fileStatus of files) {
-      if (fileStatus.status === 'completed') continue;
+      // 2. 逐个上传文件
+      let allSuccessful = true;
+      for (const fileStatus of files) {
+        if (fileStatus.status === 'completed') continue;
 
-      try {
-        updateFileStatus(fileStatus.file, { status: 'uploading' });
-        
-        await api.uploadFile(
-          projectId, 
-          fileStatus.file,
-          (progress) => updateFileStatus(fileStatus.file, { progress })
-        );
+        try {
+          updateFileStatus(fileStatus.file, { status: 'uploading' });
+          
+          await api.uploadFile(
+            projectId, 
+            fileStatus.file,
+            (progress) => updateFileStatus(fileStatus.file, { progress })
+          );
 
-        console.log('File uploaded:', fileStatus.file.name);
+          console.log('File uploaded:', fileStatus.file.name);
 
-        updateFileStatus(fileStatus.file, { 
-          status: 'completed', 
-          progress: 100 
-        });
-      } catch (error) {
-        allSuccessful = false;
-        updateFileStatus(fileStatus.file, { 
-          status: 'error',
-          error: error instanceof Error ? error.message : '上传失败'
-        });
-        
-        toast({
-          title: `文件 ${fileStatus.file.name} 上传失败`,
-          description: "请重试",
-          variant: "destructive",
-        });
+          updateFileStatus(fileStatus.file, { 
+            status: 'completed', 
+            progress: 100 
+          });
+        } catch (error) {
+          allSuccessful = false;
+          updateFileStatus(fileStatus.file, { 
+            status: 'error',
+            error: error instanceof Error ? error.message : '上传失败'
+          });
+          
+          toast({
+            title: `文件 ${fileStatus.file.name} 上传失败`,
+            description: "请重试",
+            variant: "destructive",
+          });
+        }
       }
-    }
 
-    // 3. 如果所有文件都上传成功，调用完成回调
-    if (allSuccessful) {
-      console.log('All files uploaded successfully');
-      onComplete(projectId);
+      // 3. 如果所有文件都上传成功，调用完成回调
+      if (allSuccessful) {
+        console.log('All files uploaded successfully');
+        onComplete(projectId);
       }
     } catch (error) {
       toast({
@@ -108,49 +108,47 @@ export function UploadSection({ onComplete }: UploadSectionProps) {
   };
 
   return (
-    <div className="space-y-6">
-      <div className="rounded-lg border bg-card p-6">
-        <h2 className="text-lg font-semibold mb-4">上传文件</h2>
-        
-        <div className="space-y-4">
-          <UploadArea 
-            onFilesSelected={handleFilesSelected}
-            accept=".txt,.csv"
-            multiple={false}
+    <div className="space-y-4">
+      <UploadArea 
+        onFilesSelected={handleFilesSelected}
+        accept=".txt,.csv,.md"
+        multiple={false}
+      />
+      
+      <div className="relative">
+        <div className="absolute inset-0 flex items-center">
+          <span className="w-full border-t" />
+        </div>
+        <div className="relative flex justify-center text-xs uppercase">
+          <span className="bg-background px-2 text-muted-foreground">或者</span>
+        </div>
+      </div>
+      
+      <TextInputArea onTextSubmit={handleTextSubmit} />
+      
+      {files.length > 0 && (
+        <>
+          <FileList 
+            files={files.map(f => f.file)}
+            onRemove={(file) => {
+              setFiles(prev => prev.filter(f => f.file !== file));
+            }}
+            uploadProgress={files.reduce((acc, f) => {
+              acc[f.file.name] = f.progress;
+              return acc;
+            }, {} as Record<string, number>)}
           />
           
-          <div className="relative">
-            <div className="absolute inset-0 flex items-center">
-              <span className="w-full border-t" />
-            </div>
-            <div className="relative flex justify-center text-xs uppercase">
-              <span className="bg-card px-2 text-muted-foreground">或者</span>
-            </div>
+          <div className="mt-4 flex justify-end">
+            <Button
+              onClick={handleUpload}
+              disabled={uploading}
+            >
+              {uploading ? "上传中..." : "开始上传"}
+            </Button>
           </div>
-          
-          <TextInputArea onTextSubmit={handleTextSubmit} />
-        </div>
-        
-        {files.length > 0 && (
-          <>
-            <FileList 
-              files={files.map(f => f.file)}
-              onRemove={(file) => {
-                setFiles(prev => prev.filter(f => f.file !== file));
-              }}
-            />
-            
-            <div className="mt-4 flex justify-end">
-              <Button
-                onClick={handleUpload}
-                disabled={uploading}
-              >
-                {uploading ? "上传中..." : "开始上传"}
-              </Button>
-            </div>
-          </>
-        )}
-      </div>
+        </>
+      )}
     </div>
   )
 }

@@ -1,5 +1,4 @@
 import { OutputDocument } from "@/types/workspace";
-import { ProjectOverview } from '@/types/type-cards'
 import { Project } from '@/types/workspace'
 
 export const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
@@ -25,15 +24,6 @@ export interface ProcessingResult {
   }
   error?: string;
 }
-
-export interface OutlineResult {
-  id: string;
-  status: 'pending' | 'processing' | 'completed' | 'error';
-  outline?: OutlineData;
-  error?: string;
-}
-
-
 
 export const api = {
   // 创建项目
@@ -127,18 +117,6 @@ export const api = {
   },
 
 
-
-
-
-  async getProjectOverview(projectId: string): Promise<ProjectOverview> {
-    const response = await fetch(`${API_BASE}/api/projects/${projectId}/overview`)
-    if (!response.ok) {
-      throw new Error('Failed to fetch project overview')
-    }
-    const data = await response.json()
-    return data
-  },
-
   async getProjectRecommendation(projectId: string): Promise<string[]> {
     // const response = await fetch(`${API_BASE}/api/projects/${projectId}/recommendation`);
     // if (!response.ok) {
@@ -179,6 +157,11 @@ export const api = {
       },
     });
     if (!response.ok) {
+      if (response.status === 403) {
+        localStorage.removeItem('token');
+        window.location.reload();
+        return [];
+      }
       throw new Error('Failed to fetch projects');
     }
     const data = await response.json();

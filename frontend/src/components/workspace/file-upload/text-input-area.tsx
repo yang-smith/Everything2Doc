@@ -12,7 +12,6 @@ interface TextInputAreaProps {
 
 export function TextInputArea({ onTextSubmit }: TextInputAreaProps) {
   const [text, setText] = useState("")
-  const [fileName, setFileName] = useState("pasted-content.txt")
   const [isSubmitting, setIsSubmitting] = useState(false)
   const { toast } = useToast()
 
@@ -28,6 +27,10 @@ export function TextInputArea({ onTextSubmit }: TextInputAreaProps) {
 
     try {
       setIsSubmitting(true)
+      
+      // 自动生成文件名 - 使用当前日期时间
+      const now = new Date()
+      const fileName = `content-${now.getFullYear()}${(now.getMonth()+1).toString().padStart(2, '0')}${now.getDate().toString().padStart(2, '0')}-${now.getHours().toString().padStart(2, '0')}${now.getMinutes().toString().padStart(2, '0')}.txt`
       
       // 创建文本文件
       const blob = new Blob([text], { type: "text/plain" })
@@ -57,43 +60,33 @@ export function TextInputArea({ onTextSubmit }: TextInputAreaProps) {
   }
 
   return (
-    <div className="space-y-4 mt-6 border rounded-lg p-4">
-      <div className="flex items-center gap-2">
-        <FileText className="h-5 w-5 text-gray-500" />
-        <h3 className="font-medium">粘贴文本内容</h3>
-      </div>
-      
-      <div className="grid gap-3">
-        <div className="grid grid-cols-12 gap-2">
-          <div className="col-span-4">
-            <input
-              type="text"
-              value={fileName}
-              onChange={(e) => setFileName(e.target.value)}
-              className="w-full px-3 py-2 border rounded-md text-sm"
-              placeholder="文件名称"
-            />
-          </div>
-          <div className="col-span-8 flex justify-end">
-            <Button 
-              onClick={handleSubmit}
-              disabled={isSubmitting || !text.trim()}
-              className="px-4"
-            >
-              {isSubmitting ? "处理中..." : "创建文件"}
-            </Button>
-          </div>
+    <div className="space-y-3 mt-4 border rounded-lg p-3">
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2">
+          <FileText className="h-5 w-5 text-gray-500" />
+          <h3 className="font-medium">粘贴文本内容</h3>
         </div>
         
+        <Button 
+          onClick={handleSubmit}
+          disabled={isSubmitting || !text.trim()}
+          size="sm"
+          className="px-3"
+        >
+          {isSubmitting ? "处理中..." : "创建文件"}
+        </Button>
+      </div>
+      
+      <div className="grid gap-2">
         <Textarea
           value={text}
           onChange={(e) => setText(e.target.value)}
           placeholder="在此粘贴或输入文本内容..."
-          className="min-h-[200px] resize-y"
+          className="min-h-[120px] max-h-[150px] resize-y"
         />
         
         <p className="text-xs text-gray-500">
-          输入的内容将被转换为TXT文件并上传
+          输入的内容将被自动命名并转换为TXT文件上传
         </p>
       </div>
     </div>

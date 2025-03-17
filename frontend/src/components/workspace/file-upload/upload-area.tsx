@@ -25,7 +25,7 @@ export function UploadArea({ onFilesSelected, accept, multiple }: UploadAreaProp
             return '文件大小超过限制(50MB)'
           }
           if (error.code === 'file-invalid-type') {
-            return '仅支持 .txt 和 .csv 格式文件'
+            return '仅支持 .txt、.md 和 .csv 格式文件'
           }
           return error.message
         })
@@ -62,7 +62,8 @@ export function UploadArea({ onFilesSelected, accept, multiple }: UploadAreaProp
     onDrop,
     accept: {
       'text/plain': ['.txt'],
-      'text/csv': ['.csv']
+      'text/csv': ['.csv'],
+      'text/markdown': ['.md']
     },
     maxSize: 50 * 1024 * 1024,
     multiple: multiple,
@@ -181,26 +182,20 @@ export function UploadArea({ onFilesSelected, accept, multiple }: UploadAreaProp
     <div
       {...getRootProps()}
       className={`
-        border-2 border-dashed rounded-lg p-8
-        ${isDragActive 
-          ? 'border-primary bg-primary/5' 
-          : isUploading
-            ? 'border-gray-300 bg-gray-100 cursor-wait'
-            : 'border-gray-200 hover:border-primary/50 hover:bg-gray-50'
-        }
-        transition-all duration-200 ease-in-out
-        ${isUploading ? 'cursor-wait' : 'cursor-pointer'}
+        border-2 border-dashed rounded-lg 
+        p-4 md:p-6
+        ${isDragActive ? 'border-primary bg-primary/5' : 'border-gray-300 hover:border-primary'}
+        transition-colors
+        cursor-pointer
+        flex items-center justify-center
+        max-h-[200px] /* 限制最大高度 */
       `}
     >
       <input {...getInputProps()} disabled={isUploading} />
-      <div className="flex flex-col items-center justify-center gap-4">
+      <div className="flex flex-col items-center justify-center gap-2"> {/* 减小gap */}
         <UploadCloud 
-          className={`h-12 w-12 ${
-            isDragActive 
-              ? 'text-primary' 
-              : isUploading
-                ? 'text-gray-300'
-                : 'text-gray-400'
+          className={`h-8 w-8 ${
+            isDragActive ? 'text-primary' : 'text-gray-400'
           }`} 
         />
         <div className="text-center">
@@ -210,7 +205,7 @@ export function UploadArea({ onFilesSelected, accept, multiple }: UploadAreaProp
               : "拖拽文件到这里，或点击选择"}
           </p>
           <p className="text-xs text-gray-500 mt-1">
-            支持 .txt 和 .csv 格式，单个文件最大 50MB
+            支持 .txt、.md 和 .csv 格式，单个文件最大 50MB
           </p>
         </div>
       </div>

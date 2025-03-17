@@ -4,12 +4,22 @@ import { useEffect, useState } from "react"
 import { cn } from "@/lib/utils"
 import { motion } from "framer-motion"
 import Link from "next/link"
-import { Search, User } from "lucide-react"
+import { User } from "lucide-react"
+import useAuth from "@/hooks/use-auth"
+import { 
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger
+} from "@/components/ui/dropdown-menu"
+import { LogOut, Settings } from "lucide-react"
 
 export function Navbar() {
   const [isVisible, setIsVisible] = useState(true)
   const [isTop, setIsTop] = useState(true)
   const [lastScrollY, setLastScrollY] = useState(0)
+  const { user, logout } = useAuth()
 
   useEffect(() => {
     const controlNavbar = () => {
@@ -71,30 +81,55 @@ export function Navbar() {
           </Link>
 
           {/* 核心功能区 - 最小化显示 */}
-          <div className="flex items-center gap-2">
-            {/* 搜索按钮 */}
-            <button 
-              className={cn(
-                "w-8 h-8 flex items-center justify-center rounded-full",
-                "transition-colors duration-200",
-                "hover:bg-accent/50",
-                isTop ? "opacity-60 hover:opacity-100" : "opacity-90"
-              )}
-            >
-              <Search className="w-4 h-4" />
-            </button>
-            
-            {/* 用户按钮 */}
-            <button 
-              className={cn(
-                "w-8 h-8 flex items-center justify-center rounded-full",
-                "transition-colors duration-200",
-                "hover:bg-accent/50",
-                isTop ? "opacity-60 hover:opacity-100" : "opacity-90"
-              )}
-            >
-              <User className="w-4 h-4" />
-            </button>
+          <div className="flex items-center gap-4">
+            {user ? (
+              // User is logged in - show profile dropdown
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button
+                    className={cn(
+                      "w-8 h-8 flex items-center justify-center rounded-full",
+                      "transition-colors duration-200",
+                      "hover:bg-accent/50",
+                      isTop ? "opacity-60 hover:opacity-100" : "opacity-90"
+                    )}
+                  >
+                    <User className="w-4 h-4" />
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <div className="px-2 py-1.5 text-sm font-medium">
+                    {user.email}
+                  </div>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem asChild>
+                    <Link href="/settings" className="cursor-pointer">
+                      <Settings className="mr-2 h-4 w-4" />
+                      <span>设置</span>
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={logout} className="cursor-pointer">
+                    <LogOut className="mr-2 h-4 w-4" />
+                    <span>退出</span>
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            ) : (
+              // User is NOT logged in - show login/register links
+              <div className="flex items-center gap-2">
+                <Link href="/login">
+                  <button className="text-sm font-medium hover:text-primary">
+                    登录
+                  </button>
+                </Link>
+                <Link href="/register">
+                  <button className="bg-primary text-primary-foreground rounded-md px-3 py-1.5 text-sm font-medium">
+                    注册
+                  </button>
+                </Link>
+              </div>
+            )}
           </div>
         </div>
       </div>
