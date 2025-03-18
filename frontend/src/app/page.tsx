@@ -37,13 +37,13 @@ export default function Home() {
           className="container flex max-w-[64rem] flex-col items-center gap-4 text-center pt-28 pb-20"
         >
           <h1 className="font-bold text-4xl sm:text-5xl md:text-6xl lg:text-7xl bg-gradient-to-r from-foreground to-foreground/80 bg-clip-text text-transparent">
-            智能对话分析
-            <br />
-            让群聊更有价值
+            从碎片信息到知识文档
+            {/* <br />
+            一键完成 */}
           </h1>
           <p className="max-w-[42rem] leading-normal text-muted-foreground sm:text-xl sm:leading-8">
-            基于 AI 技术，自动分析群聊内容，提取关键信息，生成结构化文档。
-            让每一次对话都成为有价值的知识资产。
+            基于 AI 技术，自动分析微信聊天记录、随手笔记，提取关键信息，生成结构化文档。
+            让零碎的信息都成为有价值的知识资产。
           </p>
           <motion.div 
             className="space-x-4"
