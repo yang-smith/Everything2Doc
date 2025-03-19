@@ -143,7 +143,7 @@ export const api = {
     //   )
     //   .slice(1, 4);
       // return [...result, '最近一个月的总结'];
-      return ['常见问答文档', '干货文档', '最近一个月的总结']
+      return ['常见问答文档', '干货文档', '总结文档']
   },
 
   async getProjects(): Promise<Project[]> {
@@ -214,7 +214,7 @@ export const api = {
     if (docType == '干货文档'){
       encodedDocType = 'knowledge';
     }
-    if (docType == '最近一个月的总结'){
+    if (docType == '总结文档'){
       encodedDocType = 'summary';
     }
     const eventSource = new EventSource(

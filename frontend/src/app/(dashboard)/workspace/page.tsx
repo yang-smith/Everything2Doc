@@ -27,19 +27,12 @@ export default function WorkspacePage() {
     try {
       if(currentProjectId){
         let eventSource: EventSource
-        if(actionTitle === '最近一个月的总结'){
-          eventSource = api.createMonthSummaryStream(currentProjectId, {
-            start_date: '2024-06-01',
-            end_date: '2024-06-30'
-          })
-        }
-        else{
-          eventSource = api.createDocStream(
-            currentProjectId,
-            actionTitle as any,
-            model
-          )
-        }
+        eventSource = api.createDocStream(
+          currentProjectId,
+          actionTitle as any,
+          model
+        )
+
 
         eventSource.onmessage = (event) => {
           try {
