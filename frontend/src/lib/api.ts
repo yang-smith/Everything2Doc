@@ -177,6 +177,34 @@ export const api = {
     return data.content
   },
 
+  async chat(message: string, model?: string): Promise<{message: string, model: string}> {
+    if (!model) {
+        model = 'google/gemini-1.5-flash';
+    }
+      
+    const url = new URL(`${API_BASE}/api/chat`);
+    
+    // 构建查询参数
+    const params = new URLSearchParams();
+    params.append('message', message);
+    params.append('model', model);
+    
+    const response = await fetch(`${url}?${params.toString()}`, {
+      method: 'GET',
+      headers: {
+        'Accept': 'application/json',
+      },
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.detail || '聊天请求失败');
+    }
+
+    return response.json();
+  },
+
+
   createChatStream(message: string, model?: string) {
     if(!model){
       model = 'deepseek/deepseek-r1-distill-llama-70b'
@@ -221,5 +249,50 @@ export const api = {
       `${API_BASE}/api/chat/${projectId}/doc_stream?doc_type=${encodedDocType}&model=${model}`
     );
     return eventSource;
+  },
+
+ 
+  async Document2HTML(
+    document: string, 
+    model?: string
+  ): Promise<{result: string, model: string}> {
+    
+    const response = await fetch(`${API_BASE}/api/chat/document-to-html`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      },
+      body: JSON.stringify({
+        document,
+        model
+      })
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.detail || '文档处理请求失败');
+    }
+
+    const data = await response.json();
+    
+    // 清理可能存在的HTML代码框
+    if (data.result) {
+      // 检查是否包含HTML代码框
+      const htmlMatch = data.result.match(/```html\s*([\s\S]*?)\s*```/);
+      if (htmlMatch) {
+        // 如果有HTML代码框，只保留其中的内容
+        data.result = htmlMatch[1];
+      } else {
+        // 检查是否有不带语言标识的代码框
+        const noLangMatch = data.result.match(/```\s*([\s\S]*?)\s*```/);
+        if (noLangMatch) {
+          data.result = noLangMatch[1];
+        }
+        // 没有代码框的情况下保留原内容
+      }
+    }
+
+    return data;
   },
 } 

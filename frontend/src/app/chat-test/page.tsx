@@ -1,551 +1,373 @@
 "use client"
 
-import { useState, useRef, useEffect, useId } from 'react'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { api } from '@/lib/api'
-import { ScrollArea } from '@/components/ui/scroll-area'
-import { Progress } from '@/components/ui/progress'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import ReactMarkdown from 'react-markdown'
-import remarkGfm from 'remark-gfm'
-import mermaid from 'mermaid'
-import { Components } from 'react-markdown'
+import React, { useState, useEffect, useRef } from 'react';
+import { api } from '@/lib/api';
+// 动态导入html2pdf.js以避免SSR问题
+import dynamic from 'next/dynamic';
 
-const DOC_TYPES = [
-  {
-    value: 'meeting_minutes',
-    label: '会议纪要1'
-  },
-  {
-    value: 'project_summary',
-    label: '项目总结'
-  },
-  {
-    value: '需求文档',
-    label: '需求文档'
-  },
-  {
-    value: 'tech_proposal',
-    label: '技术方案'
-  },
-  {
-    value: 'issue_record',
-    label: '问题记录'
-  }
-] as const
-
-type DocType = typeof DOC_TYPES[number]['value']
-
-const AI_MODELS = [
-  {
-    value: 'qwen/qwen-turbo',
-    label: 'Qwen Turbo'
-  },
-  {
-    value: 'deepseek/deepseek-r1-distill-llama-70b',
-    label: 'Deepseek R1 Distill 70B'
-  },
-  {
-    value: 'deepseek/deepseek-r1',
-    label: 'Deepseek R1'
-  },
-  {
-    value: 'deepseek/deepseek-chat',
-    label: 'Deepseek Chat'
-  },
-  {
-    value: 'openai/gpt-4o-mini',
-    label: 'GPT-4o-mini'
-  },
-  {
-    value: 'anthropic/claude-3.5-haiku-20241022',
-    label: 'Claude 3.5 Haiku'
-  },
-  {
-    value: 'google/gemini-2.0-flash-001',
-    label: 'gemini-2.0'
-  }
-] as const
-
-type AIModel = typeof AI_MODELS[number]['value']
-
-// 初始化 mermaid
-mermaid.initialize({
-  startOnLoad: true,
-  theme: 'default',
-})
-
-// Mermaid 组件
-const MermaidDiagram = ({ content }: { content: string }) => {
-  const elementId = `mermaid-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
-
-  useEffect(() => {
-    mermaid.run({
-      nodes: document.querySelectorAll(`#${elementId}`)
-    })
-  }, [elementId, content])
-
-  return (
-    <div id={elementId} className="mermaid">
-      {content}
-    </div>
-  )
+// AIInlineHtmlRenderer组件
+interface AIInlineHtmlRendererProps {
+  htmlContent: string;
 }
 
-export default function ChatTestPage() {
-  // 聊天相关状态
-  const [messages, setMessages] = useState<string[]>([])
-  const [prompt, setPrompt] = useState('')  // 新增prompt输入状态
-  const [chatHistory, setChatHistory] = useState('')  // 新增聊天记录状态
-  const [isStreaming, setIsStreaming] = useState(false)
+const AIInlineHtmlRenderer: React.FC<AIInlineHtmlRendererProps> = ({ htmlContent }) => {
+  // 配置DOMPurify允许内联样式和style标签
+  const sanitizeConfig = {
+    ADD_TAGS: ['style', 'link', 'meta'],
+    ADD_ATTR: ['style', 'charset', 'integrity', 'crossorigin', 'referrerpolicy', 'href', 'rel'],
+    WHOLE_DOCUMENT: true, // 允许完整的HTML文档结构
+    ALLOW_UNKNOWN_PROTOCOLS: true
+  };
   
-  // 月度总结相关状态
-  const [summary, setSummary] = useState('')
-  const [generationProgress, setGenerationProgress] = useState(0)
-  const [isGenerating, setIsGenerating] = useState(false)
-  const [error, setError] = useState('')
+  // 导入DOMPurify
+  const DOMPurify = require('dompurify');
   
-  // 新增推荐相关状态
-  const [recommendations, setRecommendations] = useState<string[]>([])
-  const [loadingRecommendations, setLoadingRecommendations] = useState(false)
-  const [recommendationError, setRecommendationError] = useState('')
+  // 清理HTML内容以防止XSS攻击，同时保留样式
+  const sanitizedHtml = DOMPurify.sanitize(htmlContent, sanitizeConfig);
   
-  // 新增文档生成相关状态
-  const [docContent, setDocContent] = useState('')
-  const [docProgress, setDocProgress] = useState(0)
-  const [isGeneratingDoc, setIsGeneratingDoc] = useState(false)
-  const [docError, setDocError] = useState('')
-  
-  const [selectedDocType, setSelectedDocType] = useState<DocType>('meeting_minutes')
-  const [selectedModel, setSelectedModel] = useState<AIModel>('deepseek/deepseek-r1-distill-llama-70b')
-  
-  const scrollRef = useRef<HTMLDivElement>(null)
+  return (
+    <div 
+      style={{
+        fontFamily: 'Arial, sans-serif',
+        lineHeight: 1.6,
+        color: '#333',
+        padding: '20px',
+        backgroundColor: '#fff',
+        borderRadius: '8px',
+        boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
+        maxWidth: '100%',
+        margin: '0 auto',
+        overflowWrap: 'break-word'
+      }}
+      dangerouslySetInnerHTML={{ __html: sanitizedHtml }} 
+    />
+  );
+};
 
-  // 自动滚动
+// 页面样式
+const styles = {
+  demoPage: {
+    maxWidth: '1000px',
+    margin: '0 auto',
+    padding: '20px',
+    fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, sans-serif'
+  },
+  header: {
+    textAlign: 'center' as const,
+    marginBottom: '30px'
+  },
+  headerTitle: {
+    color: '#333',
+    marginBottom: '10px'
+  },
+  headerText: {
+    color: '#666'
+  },
+  inputContainer: {
+    display: 'flex',
+    marginBottom: '30px',
+    gap: '10px'
+  },
+  input: {
+    flex: '1',
+    padding: '12px 15px',
+    fontSize: '16px',
+    border: '1px solid #ddd',
+    borderRadius: '8px',
+    outline: 'none'
+  },
+  button: {
+    backgroundColor: '#3498db',
+    color: 'white',
+    border: 'none',
+    borderRadius: '8px',
+    padding: '0 25px',
+    fontSize: '16px',
+    cursor: 'pointer',
+    transition: 'background-color 0.2s'
+  },
+  downloadButton: {
+    backgroundColor: '#27ae60',
+    color: 'white',
+    border: 'none',
+    borderRadius: '8px',
+    padding: '12px 25px',
+    fontSize: '16px',
+    cursor: 'pointer',
+    transition: 'background-color 0.2s',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: '8px',
+    margin: '20px 0'
+  },
+  loadingState: {
+    display: 'flex',
+    flexDirection: 'column' as const,
+    alignItems: 'center' as const,
+    padding: '40px',
+    backgroundColor: '#f9f9f9',
+    borderRadius: '8px',
+    marginBottom: '30px'
+  },
+  spinner: {
+    border: '4px solid rgba(0, 0, 0, 0.1)',
+    borderLeftColor: '#3498db',
+    borderRadius: '50%',
+    width: '40px',
+    height: '40px',
+    animation: 'spin 1s linear infinite',
+    marginBottom: '15px'
+  },
+  contentWrapper: {
+    marginBottom: '30px'
+  },
+  pdfContainer: {
+    marginTop: '20px'
+  },
+  footer: {
+    backgroundColor: '#f5f5f5',
+    padding: '20px',
+    borderRadius: '8px',
+    marginTop: '40px'
+  },
+  footerTitle: {
+    marginTop: 0,
+    color: '#333'
+  },
+  footerList: {
+    paddingLeft: '20px'
+  },
+  footerListItem: {
+    marginBottom: '8px'
+  },
+  errorMessage: {
+    backgroundColor: '#ffeeee',
+    color: '#e74c3c',
+    padding: '15px',
+    borderRadius: '8px',
+    marginBottom: '20px',
+    borderLeft: '4px solid #e74c3c'
+  },
+  modelSelector: {
+    padding: '10px',
+    marginBottom: '20px',
+    borderRadius: '8px',
+    border: '1px solid #ddd',
+    fontSize: '16px',
+    width: '100%'
+  }
+};
+
+// 添加关键帧动画
+const spinKeyframes = `
+  @keyframes spin {
+    to { transform: rotate(360deg); }
+  }
+`;
+
+const AIInlineHtmlDemo: React.FC = () => {
+  const [htmlContent, setHtmlContent] = useState<string>('');
+  const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [isGeneratingPdf, setIsGeneratingPdf] = useState<boolean>(false);
+  const [userPrompt, setUserPrompt] = useState<string>('');
+  const [error, setError] = useState<string | null>(null);
+  const [selectedModel, setSelectedModel] = useState<string>('deepseek/deepseek-r1-distill-llama-70b');
+  const promptInputRef = useRef<HTMLInputElement>(null);
+  const contentRef = useRef<HTMLDivElement>(null);
+
+  // 添加关键帧动画样式到文档头
   useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight
+    const styleElement = document.createElement('style');
+    styleElement.innerHTML = spinKeyframes;
+    document.head.appendChild(styleElement);
+    
+    return () => {
+      document.head.removeChild(styleElement);
+    };
+  }, []);
+
+  // 处理用户输入变化
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setUserPrompt(e.target.value);
+  };
+
+  // 处理模型选择变化
+  const handleModelChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    setSelectedModel(e.target.value);
+  };
+
+  // 发送请求到API
+  const handleSendRequest = async () => {
+    if (!userPrompt.trim()) {
+      setError('请输入提示词');
+      return;
     }
-  }, [messages, summary])
 
-  // 处理聊天提交
-  const handleChatSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if ((!prompt.trim() && !chatHistory.trim()) || isStreaming) return
-
-    const combinedInput = `${prompt.trim()}\n\n聊天记录：\n${chatHistory.trim()}`
-    
-    // setMessages(prev => [...prev, `用户输入:\n提示词: ${prompt}\n聊天记录: ${chatHistory}`])
-    setIsStreaming(true)
-    let responseText = ''
-    
     try {
-      const eventSource = api.createChatStream(combinedInput, selectedModel)
+      setIsLoading(true);
+      setError(null);
       
-      eventSource.onmessage = (event) => {
-        try {
-          // 首先检查是否是完成信号
-          if (event.data === '[DONE]') {
-            eventSource.close()
-            setIsStreaming(false)
-            return
-          }
-
-          // 然后尝试解析JSON数据
-          const data = JSON.parse(event.data)
-          
-          // 处理开始消息
-          if (data.status === 'start') {
-            console.log('Chat started with model:', data.model)
-            return
-          }
-          
-          // 处理错误消息
-          if (data.error) {
-            console.error('Stream error:', data.error)
-            setMessages(prev => [...prev, `错误: ${data.error}`])
-            eventSource.close()
-            setIsStreaming(false)
-            return
-          }
-
-          // 处理内容块
-          if (data.content) {
-            responseText += data.content
-            setMessages(prev => [...prev.slice(0, -1), `${responseText}`])
-          }
-        } catch (error) {
-          console.error('Error parsing stream data:', error)
-        }
-      }
-
-      eventSource.onerror = (error) => {
-        console.error('Stream error:', error)
-        eventSource.close()
-        setIsStreaming(false)
-        setMessages(prev => [...prev, "错误：连接中断，请重试"])
-      }
-    } catch (error) {
-      console.error('Error creating stream:', error)
-      setIsStreaming(false)
-      setMessages(prev => [...prev, "错误：无法创建连接"])
-    }
-    
-    // 保留输入内容，方便调整
-    // setPrompt('')
-    // setChatHistory('')
-  }
-
-  // 新增：处理月度总结生成
-  const handleGenerateSummary = async () => {
-    if (isGenerating) return
-    
-    setIsGenerating(true)
-    setError('')
-    setSummary('')
-    setGenerationProgress(0)
-
-    try {
-      const eventSource = api.createMonthSummaryStream('d44c4112-0987-4a1b-a7e2-1dd2f4f8e55a', {
-        start_date: '2024-06-01',
-        end_date: '2024-06-30'
-      })
-
-      eventSource.onmessage = (event) => {
-        try {
-          const data = JSON.parse(event.data)
-          
-          if (data.progress) {
-            setGenerationProgress(data.progress)
-          }
-          
-          if (data.content) {
-            setSummary(prev => prev + data.content)
-          }
-          
-          if (data.error) {
-            setError(data.error)
-            eventSource.close()
-          }
-          
-          if (event.data === '[DONE]') {
-            eventSource.close()
-            setIsGenerating(false)
-          }
-        } catch (err) {
-          console.error('Error parsing stream data:', err)
-        }
-      }
-
-      eventSource.onerror = (err) => {
-        console.error('Summary stream error:', err)
-        setError('生成中断，请重试')
-        eventSource.close()
-        setIsGenerating(false)
+      // 使用Document2HTML API替代chat API
+      const response = await api.Document2HTML(userPrompt, selectedModel);
+      console.log(response.result);
+      setHtmlContent(response.result);
+      
+      // 清空输入框
+      setUserPrompt('');
+      if (promptInputRef.current) {
+        promptInputRef.current.focus();
       }
     } catch (err) {
-      console.error('Error starting generation:', err)
-      setError('无法开始生成')
-      setIsGenerating(false)
-    }
-  }
-
-  // 新增：获取推荐处理
-  const handleGetRecommendations = async () => {
-    setLoadingRecommendations(true)
-    setRecommendationError('')
-    try {
-      const projectId = 'd44c4112-0987-4a1b-a7e2-1dd2f4f8e55a' // 测试用项目ID
-      const result = await api.getProjectRecommendation(projectId)
-      setRecommendations(result)
-      console.log(result)
-    } catch (err) {
-      setRecommendationError(err instanceof Error ? err.message : '获取推荐失败')
+      setError(err instanceof Error ? err.message : '请求失败');
     } finally {
-      setLoadingRecommendations(false)
+      setIsLoading(false);
     }
-  }
+  };
 
-  // 新增：处理文档生成
-  const handleGenerateDoc = async () => {
-    if (isGeneratingDoc) return
+  // 按下Enter键处理
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSendRequest();
+    }
+  };
+  
+  // 生成PDF并下载
+  const handleDownloadPdf = async () => {
+    if (!htmlContent || !contentRef.current) return;
     
-    setIsGeneratingDoc(true)
-    setDocError('')
-    setDocContent('')
-    setDocProgress(0)
-
     try {
-      const eventSource = api.createDocStream(
-        'd44c4112-0987-4a1b-a7e2-1dd2f4f8e55a', 
-        selectedDocType,
-        selectedModel
-      )
-
-      eventSource.onmessage = (event) => {
-        try {
-          const data = JSON.parse(event.data)
-          
-          if (data.progress) {
-            setDocProgress(data.progress)
-          }
-          
-          if (data.content) {
-            setDocContent(prev => prev + data.content)
-          }
-          
-          if (data.error) {
-            setDocError(data.error)
-            eventSource.close()
-          }
-          
-          if (event.data === '[DONE]') {
-            eventSource.close()
-            setIsGeneratingDoc(false)
-          }
-        } catch (err) {
-          console.error('Error parsing stream data:', err)
+      setIsGeneratingPdf(true);
+      
+      // 动态导入html2pdf.js
+      const html2pdf = (await import('html2pdf.js')).default;
+      
+      // 给样式和资源加载一些时间
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      // 增强的配置选项
+      const opt = {
+        margin: 10,
+        filename: 'ai-generated-content.pdf',
+        image: { type: 'jpeg', quality: 0.98 },
+        html2canvas: { 
+          scale: 2, 
+          useCORS: true,
+          allowTaint: true,
+          logging: true,
+          letterRendering: true,
+          foreignObjectRendering: true
+        },
+        jsPDF: { 
+          unit: 'mm', 
+          format: 'a4', 
+          orientation: 'portrait',
+          compress: true,
+          hotfixes: ["px_scaling"]
         }
-      }
-
-      eventSource.onerror = (err) => {
-        console.error('Doc stream error:', err)
-        setDocError('生成中断，请重试')
-        eventSource.close()
-        setIsGeneratingDoc(false)
-      }
-    } catch (err) {
-      console.error('Error starting generation:', err)
-      setDocError('无法开始生成')
-      setIsGeneratingDoc(false)
+      };
+      
+      // 生成PDF
+      await html2pdf().from(contentRef.current).set(opt).save();
+      
+    } catch (error) {
+      console.error('PDF生成失败:', error);
+      setError('PDF生成失败，请稍后再试');
+    } finally {
+      setIsGeneratingPdf(false);
     }
-  }
+  };
 
   return (
-    <div className="container max-w-4xl mx-auto p-4 space-y-6">
-      {/* 聊天测试部分 */}
-      <section className="space-y-4">
-        <h2 className="text-xl font-bold">聊天测试</h2>
-        
-        {/* 添加模型选择 */}
-        <div className="w-full">
-          <label className="text-sm font-medium block mb-2">
-            选择模型
-          </label>
-          <Select
-            value={selectedModel}
-            onValueChange={(value: AIModel) => setSelectedModel(value)}
+    <div style={styles.demoPage}>
+      <header style={styles.header}>
+        <h1 style={styles.headerTitle}>AI生成HTML内容演示</h1>
+        <p style={styles.headerText}>输入主题，AI将生成包含内联样式的HTML内容</p>
+      </header>
+
+      <select 
+        style={styles.modelSelector} 
+        value={selectedModel} 
+        onChange={handleModelChange}
+      >
+        <option value="deepseek/deepseek-chat-v3-0324:free">Deepseek 70B</option>
+        <option value="google/gemini-2.0-flash-001">Gemini</option>
+      </select>
+      
+      <div style={styles.inputContainer}>
+        <input
+          type="text"
+          ref={promptInputRef}
+          style={styles.input}
+          value={userPrompt}
+          onChange={handleInputChange}
+          onKeyDown={handleKeyDown}
+          placeholder="输入内容主题（例如：数据可视化最佳实践）"
+        />
+        <button 
+          style={{
+            ...styles.button,
+            backgroundColor: isLoading ? '#999' : '#3498db',
+            cursor: isLoading ? 'not-allowed' : 'pointer'
+          }} 
+          onClick={handleSendRequest}
+          disabled={isLoading}
+        >
+          生成
+        </button>
+      </div>
+
+      {error && (
+        <div style={styles.errorMessage}>
+          <strong>错误：</strong> {error}
+        </div>
+      )}
+      
+      {isLoading ? (
+        <div style={styles.loadingState}>
+          <div style={styles.spinner}></div>
+          <p>AI正在生成内容，请稍候...</p>
+        </div>
+      ) : htmlContent ? (
+        <div style={styles.pdfContainer}>
+          {/* PDF下载按钮 */}
+          <button 
+            style={{
+              ...styles.downloadButton,
+              backgroundColor: isGeneratingPdf ? '#95a5a6' : '#27ae60',
+              cursor: isGeneratingPdf ? 'not-allowed' : 'pointer',
+            }}
+            onClick={handleDownloadPdf}
+            disabled={isGeneratingPdf}
           >
-            <SelectTrigger className="w-full">
-              <SelectValue placeholder="选择AI模型" />
-            </SelectTrigger>
-            <SelectContent>
-              {AI_MODELS.map(({ value, label }) => (
-                <SelectItem key={value} value={value}>
-                  {label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-
-        <div className="h-[400px] border rounded-lg bg-background p-4">
-          <ScrollArea ref={scrollRef} className="h-full">
-            <div className="space-y-4">
-              {messages.map((msg, index) => (
-                <div 
-                  key={`msg-${index}-${msg.slice(0,10)}`}
-                  className="text-sm prose prose-sm max-w-none dark:prose-invert"
-                >
-                  <ReactMarkdown
-                    remarkPlugins={[remarkGfm]}
-                    components={{
-                      // 支持 mermaid 图表
-                      code: ({ node, className, children, ...props }) => {
-                        const match = /language-(\w+)/.exec(className || '')
-                        if (match && match[1] === 'mermaid') {
-                          return <MermaidDiagram content={String(children).trim()} />
-                        }
-                        return <code className={className} {...props}>{children}</code>
-                      },
-                      // 优化表格样式
-                      table: ({ children }) => {
-                        return (
-                          <div className="overflow-x-auto">
-                            <table className="min-w-full divide-y divide-gray-200">
-                              {children}
-                            </table>
-                          </div>
-                        )
-                      }
-                    }}
-                  >
-                    {msg}
-                  </ReactMarkdown>
-                </div>
-              ))}
-              {isStreaming && (
-                <div className="text-muted-foreground animate-pulse">
-                  AI正在思考...
-                </div>
-              )}
-            </div>
-          </ScrollArea>
-        </div>
-        
-        <form onSubmit={handleChatSubmit} className="space-y-4">
-          <div className="space-y-2">
-            <label className="text-sm font-medium">
-              提示词（用于指导AI如何处理聊天记录）
-            </label>
-            <textarea
-              value={prompt}
-              onChange={(e) => setPrompt(e.target.value)}
-              placeholder="例如：请将以下聊天记录整理成会议纪要..."
-              disabled={isStreaming}
-              className="w-full h-32 px-3 py-2 border rounded-md"
-            />
-          </div>
-          
-          <div className="space-y-2">
-            <label className="text-sm font-medium">
-              聊天记录
-            </label>
-            <textarea
-              value={chatHistory}
-              onChange={(e) => setChatHistory(e.target.value)}
-              placeholder="粘贴需要处理的聊天记录..."
-              disabled={isStreaming}
-              className="w-full h-32 px-3 py-2 border rounded-md"
-            />
-          </div>
-          
-          <Button type="submit" disabled={isStreaming} className="w-full">
-            发送
-          </Button>
-        </form>
-      </section>
-
-      {/* 新增：月度总结测试部分 */}
-      <section className="space-y-4">
-        <h2 className="text-xl font-bold">月度总结测试</h2>
-        
-        <div className="space-y-2">
-          <div className="flex items-center gap-4">
-            <Button 
-              onClick={handleGenerateSummary}
-              disabled={isGenerating}
-            >
-              {isGenerating ? '生成中...' : '生成月度总结'}
-            </Button>
-            {generationProgress > 0 && (
-              <Progress value={generationProgress} className="w-[200px]" />
+            {isGeneratingPdf ? '正在生成PDF...' : '下载为PDF文档'}
+            {!isGeneratingPdf && (
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z" fill="currentColor"/>
+              </svg>
             )}
-          </div>
+          </button>
           
-          {error && (
-            <div className="text-red-500 text-sm">{error}</div>
-          )}
-        </div>
-
-        <div className="h-[400px] border rounded-lg bg-background p-4">
-          <ScrollArea className="h-full">
-            <div className="whitespace-pre-wrap text-sm">
-              {summary || (isGenerating && '正在生成总结...')}
-            </div>
-          </ScrollArea>
-        </div>
-      </section>
-
-      {/* 新增：推荐测试部分 */}
-      <section className="space-y-4">
-        <h2 className="text-xl font-bold">推荐测试</h2>
-        
-        <div className="space-y-2">
-          <div className="flex items-center gap-4">
-            <Button 
-              onClick={handleGetRecommendations}
-              disabled={loadingRecommendations}
-            >
-              {loadingRecommendations ? '获取中...' : '获取推荐'}
-            </Button>
+          {/* 内容包装器，用于下载PDF */}
+          <div ref={contentRef} style={styles.contentWrapper}>
+            <AIInlineHtmlRenderer htmlContent={htmlContent} />
           </div>
-          
-          {recommendationError && (
-            <div className="text-red-500 text-sm">{recommendationError}</div>
-          )}
         </div>
-
-        <div className="h-[300px] border rounded-lg bg-background p-4">
-          <ScrollArea className="h-full">
-            <div className="space-y-2 text-sm">
-              {recommendations.map((item, index) => (
-                <div 
-                  key={`rec-${index}-${item.slice(0,10)}`}
-                  className="p-2 rounded bg-muted/50"
-                >
-                  {item}
-                </div>
-              ))}
-              {loadingRecommendations && (
-                <div className="text-muted-foreground animate-pulse">
-                  正在加载推荐...
-                </div>
-              )}
-            </div>
-          </ScrollArea>
-        </div>
-      </section>
-
-      {/* 简化的文档生成测试部分 */}
-      <section className="space-y-4">
-        <h2 className="text-xl font-bold">文档生成测试</h2>
-        
-        <div className="space-y-2">
-          <div className="flex items-center gap-4">
-            <Select
-              value={selectedDocType}
-              onValueChange={(value: DocType) => setSelectedDocType(value)}
-            >
-              <SelectTrigger className="w-[180px]">
-                <SelectValue placeholder="选择文档类型" />
-              </SelectTrigger>
-              <SelectContent>
-                {DOC_TYPES.map(({ value, label }) => (
-                  <SelectItem key={value} value={value}>
-                    {label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            
-            <Button 
-              onClick={handleGenerateDoc}
-              disabled={isGeneratingDoc}
-              className="min-w-[120px]"
-            >
-              {isGeneratingDoc ? '生成中...' : '生成文档'}
-            </Button>
-            
-            {docProgress > 0 && (
-              <Progress value={docProgress} className="w-[200px]" />
-            )}
-          </div>
-          
-          {docError && (
-            <div className="text-red-500 text-sm">{docError}</div>
-          )}
-        </div>
-
-        <div className="h-[400px] border rounded-lg bg-background p-4">
-          <ScrollArea className="h-full">
-            <div className="whitespace-pre-wrap text-sm">
-              {docContent || (isGeneratingDoc && '正在生成文档...')}
-            </div>
-          </ScrollArea>
-        </div>
-      </section>
+      ) : null}
+      
+      <footer style={styles.footer}>
+        <h3 style={styles.footerTitle}>技术要点</h3>
+        <ul style={styles.footerList}>
+          <li style={styles.footerListItem}>使用Document2HTML API将文本转换为HTML</li>
+          <li style={styles.footerListItem}>AI直接生成带有内联样式的HTML</li>
+          <li style={styles.footerListItem}>使用DOMPurify进行安全处理</li>
+          <li style={styles.footerListItem}>html2pdf.js将HTML内容转换为PDF</li>
+          <li style={styles.footerListItem}>简单实现，无需样式隔离机制</li>
+        </ul>
+      </footer>
     </div>
-  )
-} 
+  );
+};
+
+export default AIInlineHtmlDemo;

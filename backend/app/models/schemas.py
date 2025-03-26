@@ -102,3 +102,7 @@ class ChatRequest(BaseModel):
 class DocStreamRequest(BaseModel):
     doc_type: str
     model: Optional[str] = None 
+
+class Document2HTMLRequest(BaseModel):
+    document: str
+    model: Optional[str] = None

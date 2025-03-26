@@ -121,6 +121,9 @@ devDependencies:
   '@tailwindcss/typography':
     specifier: ^0.5.16
     version: 0.5.16(tailwindcss@3.4.17)
+  '@types/dompurify':
+    specifier: ^3.2.0
+    version: 3.2.0
   '@types/lodash':
     specifier: ^4.17.15
     version: 4.17.15
@@ -128,10 +131,10 @@ devDependencies:
     specifier: ^20.17.17
     version: 20.17.17
   '@types/react':
-    specifier: ^19
+    specifier: ^19.0.8
     version: 19.0.8
   '@types/react-dom':
-    specifier: ^19
+    specifier: ^19.0.3
     version: 19.0.3(@types/react@19.0.8)
   '@types/react-syntax-highlighter':
     specifier: ^15.5.13
@@ -152,7 +155,7 @@ devDependencies:
     specifier: ^3.4.1
     version: 3.4.17
   typescript:
-    specifier: ^5
+    specifier: ^5.7.3
     version: 5.7.3
 
 packages:
@@ -2625,6 +2628,13 @@ packages:
       '@types/ms': 2.1.0
     dev: false
 
+  /@types/dompurify@3.2.0:
+    resolution: {integrity: sha512-Fgg31wv9QbLDA0SpTOXO3MaxySc4DKGLi8sna4/Utjo4r3ZRPdCt4UQee8BWr+Q5z21yifghREPJGYaEOEIACg==}
+    deprecated: This is a stub types definition. dompurify provides its own type definitions, so you do not need this installed.
+    dependencies:
+      dompurify: 3.2.4
+    dev: true
+
   /@types/estree-jsx@1.0.5:
     resolution: {integrity: sha512-52CcUVNFyfb1A2ALocQw/Dd1BQFNmSdkuC3BkZ6iqhdMfQz7JWOFRuJFloOzjk+6WijU56m9oKXFAXc7o3Towg==}
     dependencies:
@@ -2727,7 +2737,6 @@ packages:
   /@types/trusted-types@2.0.7:
     resolution: {integrity: sha512-ScaPdn1dQczgbl0QFTeTOmVHFULt394XJgOQNoyVhZ6r2vLnMLJfBPd53SB52T/3G36VI1/g2MZaX0cwDuXsfw==}
     requiresBuild: true
-    dev: false
     optional: true
 
   /@types/unist@2.0.11:
@@ -4091,7 +4100,6 @@ packages:
     resolution: {integrity: sha512-ysFSFEDVduQpyhzAob/kkuJjf5zWkZD8/A9ywSp1byueyuCfHamrCBa14/Oc2iiB0e51B+NpxSl5gmzn+Ms/mg==}
     optionalDependencies:
       '@types/trusted-types': 2.0.7
-    dev: false
 
   /dunder-proto@1.0.1:
     resolution: {integrity: sha512-KIN/nDJBQRcXw0MLVhZE9iQHmG68qAVIBg9CqmUYjmQIhgij9U5MFvrqkUL5FbtyyzZuOeOt0zdeRe4UY7ct+A==}
