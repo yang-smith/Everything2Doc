@@ -2,6 +2,7 @@ from datetime import datetime
 from typing import List, Optional, Dict, Any
 from sqlmodel import Session, select
 import logging
+from sqlalchemy import text
 
 from app.models.project import Project, ProjectStatus
 
@@ -68,3 +69,38 @@ class ProjectService:
         db.refresh(project)
         
         return project.to_dict()
+
+    @staticmethod
+    def rename_project(db: Session, project_id: str, new_name: str):
+        """
+        重命名项目
+        """
+        try:
+            project = db.exec(select(Project).where(Project.id == project_id)).first()
+            
+            try:
+                sql = text("UPDATE projects SET name = :new_name, updated_at = :updated_at WHERE id = :project_id")
+                db.execute(
+                    sql,
+                    {
+                        "new_name": new_name, 
+                        "project_id": project_id,
+                        "updated_at": datetime.utcnow()
+                    }
+                )
+                
+                db.commit()
+                
+                updated_project = db.exec(select(Project).where(Project.id == project_id)).first()
+                
+                return updated_project.to_dict()
+                
+            except Exception as inner_e:
+                logger.error(f"执行SQL时出错: {str(inner_e)}", exc_info=True)
+                db.rollback()
+                raise inner_e
+            
+        except Exception as e:
+            logger.error(f"重命名项目失败: {str(e)}", exc_info=True)
+            db.rollback()
+            raise

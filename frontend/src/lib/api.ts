@@ -168,6 +168,24 @@ export const api = {
     return data;
   },
 
+  async renameProject(projectId: string, newName: string): Promise<Project> {
+    const token = localStorage.getItem("token");
+    if (!token) {
+      throw new Error("Token is missing, please login first");
+    }
+    const response = await fetch(`${API_BASE}/api/projects/${projectId}`, {
+      method: 'PATCH',
+      headers: {
+        "Authorization": `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ name: newName })
+    });
+  
+    if (!response.ok) throw new Error('Failed to rename project');
+    return response.json();
+  },
+
   async getProjectContent(projectId: string): Promise<string> {
     const response = await fetch(`${API_BASE}/api/projects/${projectId}/content`)
     if (!response.ok) {

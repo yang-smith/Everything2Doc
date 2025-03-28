@@ -6,7 +6,7 @@ import { Construction, ArrowLeft } from "lucide-react"
 import Link from "next/link"
 import { motion } from "framer-motion"
 
-export default function SettingsPage() {
+export default function ProfilePage() {
   return (
     <div className="flex flex-col min-h-screen">
       <Navbar />

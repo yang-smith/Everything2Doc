@@ -3,6 +3,7 @@
 import Link from "next/link"
 import { motion } from "framer-motion"
 import { Button } from "@/components/ui/button"
+import { Navbar } from "@/components/shared/navbar"
 import { 
   ArrowRight, 
   Brain, 
@@ -29,6 +30,8 @@ const item = {
 export default function Home() {
   return (
     <div className="flex flex-col min-h-screen">
+      <Navbar />
+      
       {/* Hero Section */}
       <section className="relative overflow-hidden">
         <motion.div 

@@ -208,13 +208,10 @@ export function VditorPreview({ content, isLoading, error, onBack, onContentChan
           console.error("初始化Vditor时出错:", e);
           alert("加载编辑器失败，请刷新页面重试");
         }
-      }, 300); // 增加延迟确保DOM完全更新
+      }, 300); 
     } else {
-      // 从原始视图切换到美化视图
       if (vditor) {
-        // 保存当前内容以便切换回来时恢复
         const currentContent = vditor.getValue();
-        console.log("保存内容用于切换回来，长度:", currentContent.length);
         setLastContent(currentContent);
       } else {
         console.warn("切换到美化视图时，Vditor实例不存在");

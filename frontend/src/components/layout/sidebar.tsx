@@ -6,23 +6,25 @@ import { usePathname } from "next/navigation"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { Plus, FolderOpen, ChevronLeft, ChevronRight, Settings, FileText } from "lucide-react"
+import { Plus, FolderOpen, ChevronLeft, ChevronRight, Settings, PenLine, Home, User } from "lucide-react"
 import { UploadDialog } from "@/components/workspace/upload-dialog"
 import { useProjectStore } from "@/stores/project"
 import { Project } from "@/types/workspace"
 import { api } from "@/lib/api"
 import { Separator } from "@/components/ui/separator"
+import { Input } from "@/components/ui/input"
+import { useToast } from "@/hooks/use-toast"
 
 const navigationItems = [
+  // {
+  //   title: "文档",
+  //   href: "/documents",
+  //   icon: FileText
+  // },
   {
-    title: "文档",
-    href: "/documents",
-    icon: FileText
-  },
-  {
-    title: "设置",
-    href: "/settings",
-    icon: Settings
+    title: "个人中心",
+    href: "/profile",
+    icon: User
   }
 ]
 
@@ -33,11 +35,39 @@ export function Sidebar() {
   const setCurrentProject = useProjectStore(state => state.setCurrentProject)
   const [projects, setProjects] = React.useState<Project[]>([])
   const pathname = usePathname()
+  const { toast } = useToast()
+  
+  const [editingProjectId, setEditingProjectId] = React.useState<string | null>(null)
+  const [newProjectName, setNewProjectName] = React.useState<string>("")
   
   React.useEffect(() => {
     api.getProjects().then(setProjects)
   }, [])
 
+  const handleRenameProject = async (projectId: string) => {
+    if (!newProjectName.trim()) {
+      setEditingProjectId(null)
+      return
+    }
+    
+    try {
+      await api.renameProject(projectId, newProjectName.trim())
+      const updatedProjects = await api.getProjects()
+      setProjects(updatedProjects)
+      setEditingProjectId(null)
+      toast({
+        title: "项目已重命名",
+        description: `项目已成功重命名为 "${newProjectName}"`,
+      })
+    } catch (error) {
+      console.error("重命名项目失败:", error)
+      toast({
+        title: "重命名失败", 
+        description: "无法重命名项目，请重试",
+        variant: "destructive",
+      })
+    }
+  }
 
   return (
     <>
@@ -57,6 +87,7 @@ export function Sidebar() {
             <ChevronLeft className="h-4 w-4" />
           )}
         </Button>
+
 
         <ScrollArea className="flex-1">
           <div className="p-4 space-y-4">
@@ -88,22 +119,61 @@ export function Sidebar() {
 
             <div className="space-y-1">
               {projects.map((project) => (
-                <Link
-                  key={project.id}
-                  href={`/workspace?id=${project.id}`}
-                  className={cn(
-                    "flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors",
-                    "hover:bg-accent hover:text-accent-foreground",
-                    project.id === currentProjectId
-                      ? "bg-accent text-accent-foreground"
-                      : "text-muted-foreground"
+                <div key={project.id} className="flex items-center relative group">
+                  {editingProjectId === project.id ? (
+                    <div className="flex items-center w-full gap-2 px-3 py-2">
+                      <FolderOpen className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
+                      <Input 
+                        value={newProjectName}
+                        onChange={(e) => setNewProjectName(e.target.value)}
+                        className="h-7 text-sm"
+                        autoFocus
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            handleRenameProject(project.id)
+                          } else if (e.key === 'Escape') {
+                            setEditingProjectId(null)
+                          }
+                        }}
+                        onBlur={() => handleRenameProject(project.id)}
+                      />
+                    </div>
+                  ) : (
+                    <>
+                      <Link
+                        href={`/workspace?id=${project.id}`}
+                        className={cn(
+                          "flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors w-full",
+                          "hover:bg-accent hover:text-accent-foreground",
+                          project.id === currentProjectId
+                            ? "bg-accent text-accent-foreground"
+                            : "text-muted-foreground"
+                        )}
+                        onClick={() => setCurrentProject(project.id)}
+                        title={collapsed ? project.name : undefined}
+                      >
+                        <FolderOpen className="h-4 w-4 flex-shrink-0" />
+                        {!collapsed && <span className="truncate">{project.name}</span>}
+                      </Link>
+                      
+                      {!collapsed && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7 absolute right-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                          onClick={(e) => {
+                            e.preventDefault()
+                            e.stopPropagation()
+                            setEditingProjectId(project.id)
+                            setNewProjectName(project.name)
+                          }}
+                        >
+                          <PenLine className="h-3.5 w-3.5" />
+                        </Button>
+                      )}
+                    </>
                   )}
-                  onClick={() => setCurrentProject(project.id)}
-                  title={collapsed ? project.name : undefined}
-                >
-                  <FolderOpen className="h-4 w-4 flex-shrink-0" />
-                  {!collapsed && <span className="truncate">{project.name}</span>}
-                </Link>
+                </div>
               ))}
             </div>
           </div>
@@ -130,6 +200,21 @@ export function Sidebar() {
                 {!collapsed && <span className="truncate">{item.title}</span>}
               </Link>
             ))}
+            
+            <Link
+              href="/settings"
+              className={cn(
+                "flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors",
+                "hover:bg-accent hover:text-accent-foreground",
+                pathname === "/settings"
+                  ? "bg-accent text-accent-foreground"
+                  : "text-muted-foreground"
+              )}
+              title={collapsed ? "设置" : undefined}
+            >
+              <Settings className="h-4 w-4 flex-shrink-0" />
+              {!collapsed && <span className="truncate">设置</span>}
+            </Link>
           </nav>
         </div>
       </div>

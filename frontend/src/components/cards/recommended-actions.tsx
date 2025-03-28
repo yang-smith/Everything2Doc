@@ -87,11 +87,8 @@ export function RecommendedActions({
       >
         <div>
           <h2 className="text-xl font-semibold bg-gradient-to-r from-foreground to-foreground/80 bg-clip-text text-transparent">
-            推荐操作
+            推荐生成
           </h2>
-          <p className="text-sm text-muted-foreground mt-1">
-            根据当前项目状态推荐的智能操作
-          </p>
         </div>
       </motion.div>
 

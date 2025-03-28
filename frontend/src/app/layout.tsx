@@ -1,7 +1,6 @@
 import type { Metadata } from "next"
 import { Inter } from "next/font/google"
 import { cn } from "@/lib/utils"
-import { Navbar } from "@/components/shared/navbar"
 import { Footer } from "@/components/shared/footer"
 import "./globals.css"
 
@@ -26,8 +25,7 @@ export default function RootLayout({
           inter.className
         )}
       >
-        <Navbar />
-        <div className="flex flex-col min-h-screen pt-12">
+        <div className="flex flex-col min-h-screen">
           <main className="flex-1">
             {children}
           </main>

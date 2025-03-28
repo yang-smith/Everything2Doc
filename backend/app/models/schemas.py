@@ -106,3 +106,13 @@ class DocStreamRequest(BaseModel):
 class Document2HTMLRequest(BaseModel):
     document: str
     model: Optional[str] = None
+
+class ProjectRename(BaseModel):
+    name: str
+    
+    class Config:
+        schema_extra = {
+            "example": {
+                "name": "新项目名称"
+            }
+        }

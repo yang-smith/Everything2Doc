@@ -88,9 +88,8 @@ export default function WorkspacePage() {
     }))
   }
 
-  // 整合原layout.tsx的内容，并修复样式问题
   return (
-    <div className="flex h-[calc(100vh-theme(spacing.12))]">
+    <div className="flex">
       <Sidebar />
       <div className="flex-1 p-4 overflow-auto">
         <div className="flex flex-col h-full w-full">
@@ -106,8 +105,7 @@ export default function WorkspacePage() {
 
               {currentProjectId ? (
                 <div className="h-full">
-                  <div className="rounded-lg border p-4 h-full w-full">
-                    <h2 className="text-xl font-semibold mb-4">推荐操作</h2>
+                  <div className="rounded-lg border p-1 h-full w-full">
                     <RecommendedActions 
                       projectId={currentProjectId} 
                       onActionClick={handleStreamDocument}
