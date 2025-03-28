@@ -3,11 +3,19 @@
 import { useEffect, useState, useRef } from 'react'
 import { motion } from "framer-motion"
 import { Button } from "@/components/ui/button"
-import { ChevronLeft, Loader2, FileDown, AlertTriangle, FileText, Sparkles } from "lucide-react"
+import { ChevronLeft, Loader2, FileDown, AlertTriangle, FileText, Sparkles, Image, Printer } from "lucide-react"
 import { useProjectStore } from "@/stores/project"
 import Vditor from 'vditor'
 import 'vditor/dist/index.css'
 import { api } from '@/lib/api'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 
 // AIInlineHtmlRenderer组件
 interface AIInlineHtmlRendererProps {
@@ -63,6 +71,7 @@ export function VditorPreview({ content, isLoading, error, onBack, onContentChan
   const [showBeautified, setShowBeautified] = useState(false)
   const [lastContent, setLastContent] = useState<string>("")
   const contentRef = useRef<HTMLDivElement>(null)
+  const [isImageGenerating, setIsImageGenerating] = useState(false)
   
   useEffect(() => {
     const vditorInstance = new Vditor("vditor-preview", {
@@ -481,6 +490,95 @@ export function VditorPreview({ content, isLoading, error, onBack, onContentChan
     }
   }, [content, showBeautified]);
 
+  // 添加图片导出功能
+  const handleExportImage = async () => {
+    if (isImageGenerating) return;
+    
+    try {
+      setIsImageGenerating(true);
+      
+      // 动态导入html2canvas
+      const html2canvasModule = await import('html2canvas');
+      const html2canvas = html2canvasModule.default;
+      
+      // 确定要捕获的元素
+      const targetElement = showBeautified 
+        ? document.querySelector('.ai-preview-content') || contentRef.current 
+        : document.querySelector('.vditor-content') || document.getElementById('vditor-preview');
+        
+      if (!targetElement) {
+        throw new Error("无法找到要导出的内容元素");
+      }
+      
+      // 创建一个临时容器以确保正确的样式和布局
+      const container = document.createElement('div');
+      container.style.width = '1200px'; // 设置足够宽度以获得好的分辨率
+      container.style.padding = '40px';
+      container.style.backgroundColor = 'white';
+      container.style.position = 'absolute';
+      container.style.left = '-9999px';
+      container.style.top = '0';
+      
+      // 克隆目标内容到临时容器
+      const clone = targetElement.cloneNode(true) as HTMLElement;
+      container.appendChild(clone);
+      document.body.appendChild(container);
+      
+      // 为克隆内容添加适当的样式
+      if (showBeautified) {
+        clone.style.fontFamily = 'Arial, sans-serif';
+        clone.style.lineHeight = '1.6';
+        clone.style.color = '#333';
+      } else {
+        // Vditor样式
+        const styleEl = document.createElement('style');
+        styleEl.textContent = `
+          .vditor-reset {
+            font-family: -apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif;
+            line-height: 1.5;
+            font-size: 16px;
+            word-break: break-word;
+          }
+        `;
+        clone.appendChild(styleEl);
+      }
+      
+      // 渲染图表等内容
+      // Mermaid图表需要等待渲染
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      // 配置html2canvas选项
+      const options = {
+        scale: 2, // 高清输出
+        logging: false, 
+        useCORS: true, // 处理跨域图片
+        allowTaint: true,
+        backgroundColor: '#ffffff',
+        scrollX: 0,
+        scrollY: 0
+      };
+      
+      // 生成画布
+      const canvas = await html2canvas(container, options);
+      
+      // 转换为图片并下载
+      const imageURL = canvas.toDataURL('image/png');
+      const a = document.createElement('a');
+      a.href = imageURL;
+      a.download = `document-${currentProjectId?.slice(0, 8) || 'untitled'}.png`;
+      a.click();
+      
+      // 清理临时元素
+      document.body.removeChild(container);
+      
+    } catch (error) {
+      console.error('图片生成失败:', error);
+      alert('图片生成失败: ' + (error instanceof Error ? error.message : String(error)));
+    } finally {
+      setIsImageGenerating(false);
+    }
+  };
+
   return (
     <motion.div
       initial={{ opacity: 0 }}
@@ -500,117 +598,88 @@ export function VditorPreview({ content, isLoading, error, onBack, onContentChan
         
         {/* Document action buttons moved to header */}
         <div className="flex items-center gap-2">
-          {showBeautified ? (
-            // 美化视图中只显示返回原始视图的按钮
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={toggleBeautifiedView}
-              className="gap-1"
-            >
-              <FileText className="h-4 w-4" />
-              查看原始版本
-            </Button>
-          ) : (
-            // 原始视图中的按钮
-            <>
-              {beautifiedHtml === "" ? (
-                // 没有美化过，显示美化文档按钮
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleBeautifyDocument}
-                  disabled={isBeautifying || isLoading || !vditor || !content}
-                  className="gap-1"
-                >
-                  {isBeautifying ? (
-                    <>
-                      <Loader2 className="h-4 w-4 animate-spin mr-1" />
-                      美化中...
-                    </>
-                  ) : (
-                    <>
-                      <Sparkles className="h-4 w-4" />
-                      美化文档
-                    </>
-                  )}
-                </Button>
-              ) : (
-                // 已经美化过，显示查看美化版本和重新美化两个按钮
-                <>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={toggleBeautifiedView}
-                    className="gap-1"
-                  >
-                    <Sparkles className="h-4 w-4" />
-                    查看美化版本
-                  </Button>
-                  
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={handleBeautifyDocument}
-                    disabled={isBeautifying || isLoading || !vditor || !content}
-                    className="gap-1"
-                  >
-                    {isBeautifying ? (
-                      <>
-                        <Loader2 className="h-4 w-4 animate-spin mr-1" />
-                        美化中...
-                      </>
-                    ) : (
-                      <>
-                        <Sparkles className="h-4 w-4" />
-                        重新美化
-                      </>
-                    )}
-                  </Button>
-                </>
-              )}
-            </>
-          )}
-          
+          {/* 美化文档按钮保留在主界面 */}
           <Button
-            variant="ghost"
+            variant="outline"
             size="sm"
-            onClick={handleDownloadMarkdown}
-            className="gap-1"
-            disabled={isLoading || !content}
-          >
-            <FileText className="h-4 w-4" />
-            Markdown
-          </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={handleDownloadPDF}
-            disabled={isPdfGenerating || isLoading || !content}
+            onClick={showBeautified ? toggleBeautifiedView : handleBeautifyDocument}
+            disabled={isBeautifying || isLoading || (!vditor && !beautifiedHtml)}
             className="gap-1"
           >
-            {isPdfGenerating ? (
+            {isBeautifying ? (
               <>
                 <Loader2 className="h-4 w-4 animate-spin mr-1" />
-                生成中...
+                美化中...
               </>
             ) : (
               <>
-                <FileDown className="h-4 w-4" />
-                PDF
+                <Sparkles className="h-4 w-4" />
+                {showBeautified ? "返回编辑" : "美化文档"}
               </>
             )}
           </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={handlePrint}
-            disabled={isLoading || !content}
-            className="gap-1"
-          >
-            <FileText className="h-4 w-4" />
-            打印
-          </Button>
+          
+          {/* 导出功能下拉菜单 */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="sm" className="gap-1">
+                <FileDown className="h-4 w-4" />
+                导出
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuLabel>选择导出格式</DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              
+              {/* Markdown导出选项 */}
+              <DropdownMenuItem onClick={handleDownloadMarkdown}>
+                <FileText className="h-4 w-4 mr-2" />
+                Markdown文件
+              </DropdownMenuItem>
+              
+              {/* PDF导出选项 */}
+              <DropdownMenuItem 
+                onClick={handleDownloadPDF}
+                disabled={isPdfGenerating || isLoading || (!vditor && !beautifiedHtml)}
+              >
+                {isPdfGenerating ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                    生成PDF中...
+                  </>
+                ) : (
+                  <>
+                    <FileDown className="h-4 w-4 mr-2" />
+                    PDF文件
+                  </>
+                )}
+              </DropdownMenuItem>
+              
+              {/* 图片导出选项 */}
+              <DropdownMenuItem 
+                onClick={handleExportImage}
+                disabled={isImageGenerating || isLoading || (!vditor && !beautifiedHtml)}
+              >
+                {isImageGenerating ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                    生成图片中...
+                  </>
+                ) : (
+                  <>
+                    <Image className="h-4 w-4 mr-2" />
+                    PNG图片
+                  </>
+                )}
+              </DropdownMenuItem>
+              
+              {/* 打印选项 */}
+              <DropdownMenuItem onClick={handlePrint}>
+                <Printer className="h-4 w-4 mr-2" />
+                打印文档
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
 

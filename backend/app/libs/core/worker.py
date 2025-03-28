@@ -8,21 +8,14 @@ import os
 from ..preprocessing.reader import read_file
 from ..preprocessing.split import split_chat_records, split_by_time_period, split_by_tokens
 from ..prompt.prompt import (
-    PROMPT_GEN_STRUCTURE,
-    PROMPT_GEN_DOC_STRUCTURE,
-    PROMPT_GET_INFO,
-    PROMPT_GEN_END_DOC,
-    PROMPT_EXTRACT_INFO,
     PROMPT_GEN_OVERVIEW,
-    PROMPT_MONTHLY_SUMMARY,
     PROMPT_MERGE_SUMMARY,
-    PROMPT_GEN_RECOMMENDATIONS,
     PROMPT_GEN_PART_DOC,
     PROMPT_MERGE_DOC,
     PROMPT_GEN_QA,
     PROMPT_DRY_CONTENT,
+    PROMPT_SUMMARY_CONTENT,
 )
-from .gen_structure import gen_structure
 from dataclasses import dataclass
 from typing import List, Optional, Callable
 from tiktoken import get_encoding
@@ -129,8 +122,8 @@ async def process_chunk_parallel_async(
             for attempt in range(retry_count + 1):
                 try:
                     # 构建提示
-                    if doc_type == "recent_month_summary":
-                        prompt = PROMPT_MONTHLY_SUMMARY.format(chat_records=chunk)
+                    if doc_type == "summary":
+                        prompt = PROMPT_SUMMARY_CONTENT.format(chat_records=chunk)
                     elif doc_type == "QA":
                         prompt = PROMPT_GEN_QA.format(chat_records=chunk)
                     elif doc_type == "knowledge":
@@ -393,8 +386,8 @@ async def process_grouped_docs_parallel(
 
 def generate_doc_single_chunk(chat_records: str, doc_type: str, model: str = "deepseek-reasoner"):
     """直接生成单个文档"""
-    if doc_type == "recent_month_summary":
-        prompt = PROMPT_MERGE_SUMMARY.format(summaries=chat_records)
+    if doc_type == "summary":
+        prompt = PROMPT_SUMMARY_CONTENT.format(chat_records=chat_records)
     elif doc_type == "QA":
         prompt = PROMPT_GEN_QA.format(chat_records=chat_records)
     elif doc_type == "knowledge":
