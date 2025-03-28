@@ -3,7 +3,7 @@
 import { useEffect, useState, useRef } from 'react'
 import { motion } from "framer-motion"
 import { Button } from "@/components/ui/button"
-import { ChevronLeft, Loader2, FileDown, AlertTriangle, FileText, Sparkles, Image, Printer } from "lucide-react"
+import { ChevronLeft, Loader2, FileDown, AlertTriangle, FileText, Sparkles, Image, Printer, Share2, Copy, Check } from "lucide-react"
 import { useProjectStore } from "@/stores/project"
 import Vditor from 'vditor'
 import 'vditor/dist/index.css'
@@ -16,8 +16,8 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import { toast } from "@/hooks/use-toast"
 
-// AIInlineHtmlRenderer组件
 interface AIInlineHtmlRendererProps {
   htmlContent: string;
 }
@@ -72,7 +72,9 @@ export function VditorPreview({ content, isLoading, error, onBack, onContentChan
   const [lastContent, setLastContent] = useState<string>("")
   const contentRef = useRef<HTMLDivElement>(null)
   const [isImageGenerating, setIsImageGenerating] = useState(false)
-  
+  const [isCopying, setIsCopying] = useState(false)
+  const [copySuccess, setCopySuccess] = useState(false)
+
   useEffect(() => {
     const vditorInstance = new Vditor("vditor-preview", {
       after: () => {
@@ -108,7 +110,6 @@ export function VditorPreview({ content, isLoading, error, onBack, onContentChan
     }
   }, [])
   
-  // Update content when it changes externally
   useEffect(() => {
     if (vditor && content !== vditor.getValue() && !showBeautified) {
       vditor.setValue(content)
@@ -116,7 +117,6 @@ export function VditorPreview({ content, isLoading, error, onBack, onContentChan
     }
   }, [content, vditor, showBeautified])
 
-  // Handle download as Markdown
   const handleDownloadMarkdown = () => {
     const docContent = lastContent || vditor?.getValue() || content
     const blob = new Blob([docContent], { type: 'text/markdown' })
@@ -130,7 +130,6 @@ export function VditorPreview({ content, isLoading, error, onBack, onContentChan
     URL.revokeObjectURL(url)
   }
 
-  // Handle beautify document
   const handleBeautifyDocument = async () => {
     if (!vditor || isBeautifying) return
     
@@ -152,13 +151,10 @@ export function VditorPreview({ content, isLoading, error, onBack, onContentChan
     }
   }
 
-  // Toggle between beautified and original view
   const toggleBeautifiedView = () => {
     if (showBeautified) {
-      // 从美化视图切回原始视图
       setShowBeautified(false);
       
-      // 强制清理可能存在的Vditor实例
       if (vditor) {
         try {
           vditor.destroy();
@@ -168,25 +164,20 @@ export function VditorPreview({ content, isLoading, error, onBack, onContentChan
         setVditor(undefined);
       }
       
-      // 确保DOM已更新
       setTimeout(() => {
-        // 检查vditor-preview元素是否存在
         const vditorElement = document.getElementById("vditor-preview");
         if (!vditorElement) {
           console.error("找不到vditor-preview元素");
           return;
         }
         
-        // 清空容器内容
         vditorElement.innerHTML = '';
         
-        // 完全重新初始化vditor
         console.log("正在重建Vditor，内容长度:", (lastContent || content).length);
         
         try {
           const vditorInstance = new Vditor("vditor-preview", {
             after: () => {
-              // 确保有内容可用
               const contentToSet = lastContent || content || '';
               console.log("设置Vditor内容...");
               vditorInstance.setValue(contentToSet);
@@ -229,20 +220,16 @@ export function VditorPreview({ content, isLoading, error, onBack, onContentChan
     }
   };
 
-  // 完全重写PDF导出函数
   const handleDownloadPDF = async () => {
     if (isPdfGenerating) return;
     
     try {
       setIsPdfGenerating(true);
       
-      // 动态导入html2pdf.js
       const html2pdf = (await import('html2pdf.js')).default;
       
-      // 动态导入DOMPurify - 关键点1：使用DOMPurify处理HTML
       const DOMPurify = require('dompurify');
       
-      // 清理HTML配置
       const sanitizeConfig = {
         ADD_TAGS: ['style', 'link', 'meta'],
         ADD_ATTR: ['style', 'charset', 'integrity', 'crossorigin', 'referrerpolicy', 'href', 'rel'],
@@ -250,7 +237,6 @@ export function VditorPreview({ content, isLoading, error, onBack, onContentChan
         ALLOW_UNKNOWN_PROTOCOLS: true
       };
       
-      // 创建临时容器 - 关键点2：添加内联样式
       const container = document.createElement('div');
       container.style.width = '800px';
       container.style.padding = '20px';
@@ -261,13 +247,10 @@ export function VditorPreview({ content, isLoading, error, onBack, onContentChan
       container.style.margin = '0 auto';
       document.body.appendChild(container);
 
-      // 根据当前视图采用不同处理方式
       if (showBeautified) {
-        // 处理美化HTML视图 - 关键点3：使用DOMPurify清理HTML
         const sanitizedHtml = DOMPurify.sanitize(beautifiedHtml, sanitizeConfig);
         container.innerHTML = sanitizedHtml;
         
-        // 在容器内部为字体图标添加样式
         const styleEl = document.createElement('style');
         styleEl.textContent = `
           @import url('https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css');
@@ -287,7 +270,6 @@ export function VditorPreview({ content, isLoading, error, onBack, onContentChan
         `;
         container.prepend(styleEl);
 
-        // 添加表格专用样式，增加行高和单元格高度
         const tableStyleEl = document.createElement('style');
         tableStyleEl.textContent = `
           table {
@@ -314,12 +296,10 @@ export function VditorPreview({ content, isLoading, error, onBack, onContentChan
         container.prepend(tableStyleEl);
       } 
       else {
-        // 处理Vditor视图
         if (!vditor) {
           throw new Error("Vditor编辑器未初始化");
         }
         
-        // 添加Vditor样式内联
         const styleEl = document.createElement('style');
         styleEl.textContent = `
           .vditor-reset {
@@ -334,17 +314,14 @@ export function VditorPreview({ content, isLoading, error, onBack, onContentChan
         `;
         container.appendChild(styleEl);
         
-        // 创建div并添加类名
         const vditorContent = document.createElement('div');
         vditorContent.className = 'vditor-reset';
         vditorContent.innerHTML = vditor.getHTML();
         container.appendChild(vditorContent);
       }
       
-      // 等待渲染
       await new Promise(resolve => setTimeout(resolve, 1000));
       
-      // PDF配置选项
       const opt = {
         margin: [15, 15, 15, 15],
         filename: `document-${currentProjectId?.slice(0, 8) || 'untitled'}.pdf`,
@@ -365,10 +342,8 @@ export function VditorPreview({ content, isLoading, error, onBack, onContentChan
         }
       };
       
-      // 生成PDF
       await html2pdf().from(container).set(opt).save();
       
-      // 清理临时元素
       document.body.removeChild(container);
       
     } catch (error) {
@@ -379,7 +354,6 @@ export function VditorPreview({ content, isLoading, error, onBack, onContentChan
     }
   };
 
-  // Simplified print function
   const handlePrint = () => {
     if (showBeautified && beautifiedHtml) {
       const printWindow = window.open('', '_blank')
@@ -438,7 +412,6 @@ export function VditorPreview({ content, isLoading, error, onBack, onContentChan
     }
   }
 
-  // 在组件卸载时清理
   useEffect(() => {
     return () => {
       if (vditor) {
@@ -447,18 +420,14 @@ export function VditorPreview({ content, isLoading, error, onBack, onContentChan
     };
   }, []);
 
-  // 修改useEffect，确保在组件挂载和content变化时正确设置vditor内容
   useEffect(() => {
-    // 只有在非美化视图时才操作vditor
     if (!showBeautified) {
       if (vditor) {
-        // 如果vditor已存在，更新内容
         if (content !== vditor.getValue()) {
           vditor.setValue(content);
           setLastContent(content);
         }
       } else {
-        // 初始化vditor
         const vditorInstance = new Vditor("vditor-preview", {
           after: () => {
             vditorInstance.setValue(content);
@@ -490,18 +459,15 @@ export function VditorPreview({ content, isLoading, error, onBack, onContentChan
     }
   }, [content, showBeautified]);
 
-  // 添加图片导出功能
   const handleExportImage = async () => {
     if (isImageGenerating) return;
     
     try {
       setIsImageGenerating(true);
       
-      // 动态导入html2canvas
       const html2canvasModule = await import('html2canvas');
       const html2canvas = html2canvasModule.default;
       
-      // 确定要捕获的元素
       const targetElement = showBeautified 
         ? document.querySelector('.ai-preview-content') || contentRef.current 
         : document.querySelector('.vditor-content') || document.getElementById('vditor-preview');
@@ -510,27 +476,23 @@ export function VditorPreview({ content, isLoading, error, onBack, onContentChan
         throw new Error("无法找到要导出的内容元素");
       }
       
-      // 创建一个临时容器以确保正确的样式和布局
       const container = document.createElement('div');
-      container.style.width = '1200px'; // 设置足够宽度以获得好的分辨率
+      container.style.width = '1200px'; 
       container.style.padding = '40px';
       container.style.backgroundColor = 'white';
       container.style.position = 'absolute';
       container.style.left = '-9999px';
       container.style.top = '0';
       
-      // 克隆目标内容到临时容器
       const clone = targetElement.cloneNode(true) as HTMLElement;
       container.appendChild(clone);
       document.body.appendChild(container);
       
-      // 为克隆内容添加适当的样式
       if (showBeautified) {
         clone.style.fontFamily = 'Arial, sans-serif';
         clone.style.lineHeight = '1.6';
         clone.style.color = '#333';
       } else {
-        // Vditor样式
         const styleEl = document.createElement('style');
         styleEl.textContent = `
           .vditor-reset {
@@ -543,32 +505,26 @@ export function VditorPreview({ content, isLoading, error, onBack, onContentChan
         clone.appendChild(styleEl);
       }
       
-      // 渲染图表等内容
-      // Mermaid图表需要等待渲染
       await new Promise(resolve => setTimeout(resolve, 500));
       
-      // 配置html2canvas选项
       const options = {
-        scale: 2, // 高清输出
+        scale: 2, 
         logging: false, 
-        useCORS: true, // 处理跨域图片
+        useCORS: true, 
         allowTaint: true,
         backgroundColor: '#ffffff',
         scrollX: 0,
         scrollY: 0
       };
       
-      // 生成画布
       const canvas = await html2canvas(container, options);
       
-      // 转换为图片并下载
       const imageURL = canvas.toDataURL('image/png');
       const a = document.createElement('a');
       a.href = imageURL;
       a.download = `document-${currentProjectId?.slice(0, 8) || 'untitled'}.png`;
       a.click();
       
-      // 清理临时元素
       document.body.removeChild(container);
       
     } catch (error) {
@@ -576,6 +532,90 @@ export function VditorPreview({ content, isLoading, error, onBack, onContentChan
       alert('图片生成失败: ' + (error instanceof Error ? error.message : String(error)));
     } finally {
       setIsImageGenerating(false);
+    }
+  };
+
+  const handleCopyImageToClipboard = async () => {
+    if (isCopying) return;
+    
+    try {
+      setIsCopying(true);
+      
+      const html2canvasModule = await import('html2canvas');
+      const html2canvas = html2canvasModule.default;
+      
+      const targetElement = showBeautified 
+        ? document.querySelector('.ai-preview-content') || contentRef.current 
+        : document.querySelector('.vditor-content') || document.getElementById('vditor-preview');
+        
+      if (!targetElement) {
+        throw new Error("无法找到要分享的内容元素");
+      }
+      
+      // 创建临时容器以确保正确的样式和布局
+      const container = document.createElement('div');
+      container.style.width = '1200px';
+      container.style.padding = '40px';
+      container.style.backgroundColor = 'white';
+      container.style.position = 'absolute';
+      container.style.left = '-9999px';
+      container.style.top = '0';
+      
+      // 克隆目标内容
+      const clone = targetElement.cloneNode(true) as HTMLElement;
+      container.appendChild(clone);
+      document.body.appendChild(container);
+      
+      // 应用样式并等待渲染
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      // 生成画布
+      const canvas = await html2canvas(container, {
+        scale: 2,
+        logging: false,
+        useCORS: true,
+        allowTaint: true,
+        backgroundColor: '#ffffff'
+      });
+      
+      // 转换为blob并复制到剪贴板
+      canvas.toBlob(async (blob) => {
+        if (blob) {
+          try {
+            // 使用Clipboard API复制图片到剪贴板
+            const item = new ClipboardItem({ 'image/png': blob });
+            await navigator.clipboard.write([item]);
+            
+            // 显示成功提示
+            setCopySuccess(true);
+            setTimeout(() => setCopySuccess(false), 2000);
+            
+            toast({
+              title: "图片已复制到剪贴板",
+              description: "现在您可以将图片粘贴到任何支持图片的应用中",
+              duration: 3000,
+            });
+          } catch (err) {
+            console.error("复制到剪贴板失败:", err);
+            alert("复制到剪贴板失败，请尝试使用导出图片功能");
+          }
+        } else {
+          throw new Error("图片生成失败");
+        }
+        
+        // 清理临时元素
+        document.body.removeChild(container);
+      }, 'image/png');
+      
+    } catch (error) {
+      console.error('图片生成失败:', error);
+      toast({
+        title: "无法生成图片",
+        description: error instanceof Error ? error.message : String(error),
+        variant: "destructive",
+      });
+    } finally {
+      setIsCopying(false);
     }
   };
 
@@ -623,13 +663,40 @@ export function VditorPreview({ content, isLoading, error, onBack, onContentChan
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="outline" size="sm" className="gap-1">
-                <FileDown className="h-4 w-4" />
-                导出
+                <Share2 className="h-4 w-4" />
+                分享
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <DropdownMenuLabel>选择导出格式</DropdownMenuLabel>
+              <DropdownMenuLabel>分享与导出</DropdownMenuLabel>
               <DropdownMenuSeparator />
+              
+              {/* 复制到剪贴板选项 */}
+              <DropdownMenuItem 
+                onClick={handleCopyImageToClipboard}
+                disabled={isCopying || isLoading || (!vditor && !beautifiedHtml)}
+              >
+                {isCopying ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                    处理中...
+                  </>
+                ) : copySuccess ? (
+                  <>
+                    <Check className="h-4 w-4 mr-2 text-green-500" />
+                    已复制到剪贴板
+                  </>
+                ) : (
+                  <>
+                    <Copy className="h-4 w-4 mr-2" />
+                    复制为图片
+                  </>
+                )}
+              </DropdownMenuItem>
+              
+              <DropdownMenuSeparator />
+              
+              <DropdownMenuLabel className="text-xs text-muted-foreground">导出为文件</DropdownMenuLabel>
               
               {/* Markdown导出选项 */}
               <DropdownMenuItem onClick={handleDownloadMarkdown}>
@@ -655,7 +722,7 @@ export function VditorPreview({ content, isLoading, error, onBack, onContentChan
                 )}
               </DropdownMenuItem>
               
-              {/* 图片导出选项 */}
+              {/* 图片下载选项 */}
               <DropdownMenuItem 
                 onClick={handleExportImage}
                 disabled={isImageGenerating || isLoading || (!vditor && !beautifiedHtml)}
@@ -668,7 +735,7 @@ export function VditorPreview({ content, isLoading, error, onBack, onContentChan
                 ) : (
                   <>
                     <Image className="h-4 w-4 mr-2" />
-                    PNG图片
+                    下载图片
                   </>
                 )}
               </DropdownMenuItem>
@@ -676,7 +743,7 @@ export function VditorPreview({ content, isLoading, error, onBack, onContentChan
               {/* 打印选项 */}
               <DropdownMenuItem onClick={handlePrint}>
                 <Printer className="h-4 w-4 mr-2" />
-                打印文档
+                打印
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
