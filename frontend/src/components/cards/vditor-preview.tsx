@@ -72,7 +72,8 @@ export function VditorPreview({ content, isLoading, error, onBack, onContentChan
   const [lastContent, setLastContent] = useState<string>("")
   const contentRef = useRef<HTMLDivElement>(null)
   const [isImageGenerating, setIsImageGenerating] = useState(false)
-  const [isCopying, setIsCopying] = useState(false)
+  const [isCopyingMobile, setIsCopyingMobile] = useState(false)
+  const [isCopyingDesktop, setIsCopyingDesktop] = useState(false)
   const [copySuccess, setCopySuccess] = useState(false)
 
   useEffect(() => {
@@ -459,140 +460,116 @@ export function VditorPreview({ content, isLoading, error, onBack, onContentChan
     }
   }, [content, showBeautified]);
 
-  const handleExportImage = async () => {
-    if (isImageGenerating) return;
+  const createImage = async (format: 'desktop' | 'mobile') => {
+    const html2canvasModule = await import('html2canvas');
+    const html2canvas = html2canvasModule.default;
     
-    try {
-      setIsImageGenerating(true);
+    const targetElement = showBeautified 
+      ? document.querySelector('.ai-preview-content') || contentRef.current 
+      : document.querySelector('.vditor-content') || document.getElementById('vditor-preview');
       
-      const html2canvasModule = await import('html2canvas');
-      const html2canvas = html2canvasModule.default;
-      
-      const targetElement = showBeautified 
-        ? document.querySelector('.ai-preview-content') || contentRef.current 
-        : document.querySelector('.vditor-content') || document.getElementById('vditor-preview');
-        
-      if (!targetElement) {
-        throw new Error("无法找到要导出的内容元素");
-      }
-      
-      const container = document.createElement('div');
-      container.style.width = '1200px'; 
-      container.style.padding = '40px';
-      container.style.backgroundColor = 'white';
-      container.style.position = 'absolute';
-      container.style.left = '-9999px';
-      container.style.top = '0';
-      
-      const clone = targetElement.cloneNode(true) as HTMLElement;
-      container.appendChild(clone);
-      document.body.appendChild(container);
-      
-      if (showBeautified) {
-        clone.style.fontFamily = 'Arial, sans-serif';
-        clone.style.lineHeight = '1.6';
-        clone.style.color = '#333';
-      } else {
-        const styleEl = document.createElement('style');
-        styleEl.textContent = `
-          .vditor-reset {
-            font-family: -apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif;
-            line-height: 1.5;
-            font-size: 16px;
-            word-break: break-word;
-          }
-        `;
-        clone.appendChild(styleEl);
-      }
-      
-      await new Promise(resolve => setTimeout(resolve, 500));
-      
-      const options = {
-        scale: 2, 
-        logging: false, 
-        useCORS: true, 
-        allowTaint: true,
-        backgroundColor: '#ffffff',
-        scrollX: 0,
-        scrollY: 0
-      };
-      
-      const canvas = await html2canvas(container, options);
-      
-      const imageURL = canvas.toDataURL('image/png');
-      const a = document.createElement('a');
-      a.href = imageURL;
-      a.download = `document-${currentProjectId?.slice(0, 8) || 'untitled'}.png`;
-      a.click();
-      
-      document.body.removeChild(container);
-      
-    } catch (error) {
-      console.error('图片生成失败:', error);
-      alert('图片生成失败: ' + (error instanceof Error ? error.message : String(error)));
-    } finally {
-      setIsImageGenerating(false);
+    if (!targetElement) {
+      throw new Error("无法找到要导出的内容元素");
     }
+    
+    // 创建临时容器以确保正确的样式和布局
+    const container = document.createElement('div');
+    
+    // 根据选择的格式设置不同的宽度和样式
+    if (format === 'mobile') {
+      container.style.width = '600px'; // 移动端更窄的宽度
+      container.style.padding = '15px'; // 减少内边距
+    } else {
+      container.style.width = '1200px'; // 桌面端更宽的宽度
+      container.style.padding = '40px'; // 保持原有内边距
+    }
+    
+    container.style.backgroundColor = 'white';
+    container.style.position = 'absolute';
+    container.style.left = '-9999px';
+    container.style.top = '0';
+    
+    // 克隆目标内容
+    const clone = targetElement.cloneNode(true) as HTMLElement;
+    container.appendChild(clone);
+    document.body.appendChild(container);
+    
+    // 根据不同格式应用不同样式
+    if (format === 'mobile') {
+      // 添加移动端优化样式
+      const styleEl = document.createElement('style');
+      styleEl.textContent = `
+        * {
+          font-size: 16px !important;
+          line-height: 1.8 !important;
+        }
+        h1 { font-size: 24px !important; }
+        h2 { font-size: 22px !important; }
+        h3 { font-size: 20px !important; }
+        h4, h5, h6 { font-size: 18px !important; }
+        p { margin-bottom: 16px !important; }
+        pre, code {
+          white-space: pre-wrap !important;
+          word-break: break-word !important;
+          max-width: 100% !important;
+          overflow-x: visible !important;
+        }
+        table {
+          width: 100% !important;
+          font-size: 14px !important;
+          word-break: break-word !important;
+          white-space: normal !important;
+        }
+        img {
+          max-width: 100% !important;
+          height: auto !important;
+        }
+      `;
+      container.appendChild(styleEl);
+    }
+    
+    await new Promise(resolve => setTimeout(resolve, 500));
+    
+    const options = {
+      scale: 2, 
+      logging: false, 
+      useCORS: true, 
+      allowTaint: true,
+      backgroundColor: '#ffffff',
+      scrollX: 0,
+      scrollY: 0
+    };
+    
+    const canvas = await html2canvas(container, options);
+    document.body.removeChild(container);
+    
+    return canvas;
   };
 
-  const handleCopyImageToClipboard = async () => {
-    if (isCopying) return;
+  const handleCopyImageToClipboard = async (format: 'desktop' | 'mobile') => {
+    if ((format === 'mobile' && isCopyingMobile) || (format === 'desktop' && isCopyingDesktop)) return;
     
     try {
-      setIsCopying(true);
-      
-      const html2canvasModule = await import('html2canvas');
-      const html2canvas = html2canvasModule.default;
-      
-      const targetElement = showBeautified 
-        ? document.querySelector('.ai-preview-content') || contentRef.current 
-        : document.querySelector('.vditor-content') || document.getElementById('vditor-preview');
-        
-      if (!targetElement) {
-        throw new Error("无法找到要分享的内容元素");
+      if (format === 'mobile') {
+        setIsCopyingMobile(true);
+      } else {
+        setIsCopyingDesktop(true);
       }
       
-      // 创建临时容器以确保正确的样式和布局
-      const container = document.createElement('div');
-      container.style.width = '1200px';
-      container.style.padding = '40px';
-      container.style.backgroundColor = 'white';
-      container.style.position = 'absolute';
-      container.style.left = '-9999px';
-      container.style.top = '0';
+      const canvas = await createImage(format);
       
-      // 克隆目标内容
-      const clone = targetElement.cloneNode(true) as HTMLElement;
-      container.appendChild(clone);
-      document.body.appendChild(container);
-      
-      // 应用样式并等待渲染
-      await new Promise(resolve => setTimeout(resolve, 500));
-      
-      // 生成画布
-      const canvas = await html2canvas(container, {
-        scale: 2,
-        logging: false,
-        useCORS: true,
-        allowTaint: true,
-        backgroundColor: '#ffffff'
-      });
-      
-      // 转换为blob并复制到剪贴板
       canvas.toBlob(async (blob) => {
         if (blob) {
           try {
-            // 使用Clipboard API复制图片到剪贴板
             const item = new ClipboardItem({ 'image/png': blob });
             await navigator.clipboard.write([item]);
             
-            // 显示成功提示
             setCopySuccess(true);
             setTimeout(() => setCopySuccess(false), 2000);
             
             toast({
               title: "图片已复制到剪贴板",
-              description: "现在您可以将图片粘贴到任何支持图片的应用中",
+              description: `已创建${format === 'mobile' ? '手机友好' : '桌面友好'}版图片`,
               duration: 3000,
             });
           } catch (err) {
@@ -602,9 +579,6 @@ export function VditorPreview({ content, isLoading, error, onBack, onContentChan
         } else {
           throw new Error("图片生成失败");
         }
-        
-        // 清理临时元素
-        document.body.removeChild(container);
       }, 'image/png');
       
     } catch (error) {
@@ -615,7 +589,11 @@ export function VditorPreview({ content, isLoading, error, onBack, onContentChan
         variant: "destructive",
       });
     } finally {
-      setIsCopying(false);
+      if (format === 'mobile') {
+        setIsCopyingMobile(false);
+      } else {
+        setIsCopyingDesktop(false);
+      }
     }
   };
 
@@ -659,7 +637,7 @@ export function VditorPreview({ content, isLoading, error, onBack, onContentChan
             )}
           </Button>
           
-          {/* 导出功能下拉菜单 */}
+          {/* 分享功能下拉菜单 - 简化版 */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="outline" size="sm" className="gap-1">
@@ -671,25 +649,37 @@ export function VditorPreview({ content, isLoading, error, onBack, onContentChan
               <DropdownMenuLabel>分享与导出</DropdownMenuLabel>
               <DropdownMenuSeparator />
               
-              {/* 复制到剪贴板选项 */}
+              {/* 简化后的两个直接选项 */}
               <DropdownMenuItem 
-                onClick={handleCopyImageToClipboard}
-                disabled={isCopying || isLoading || (!vditor && !beautifiedHtml)}
+                onClick={() => handleCopyImageToClipboard('mobile')}
+                disabled={isCopyingMobile || isLoading || (!vditor && !beautifiedHtml)}
               >
-                {isCopying ? (
+                {isCopyingMobile ? (
                   <>
                     <Loader2 className="h-4 w-4 animate-spin mr-2" />
                     处理中...
                   </>
-                ) : copySuccess ? (
+                ) : (
                   <>
-                    <Check className="h-4 w-4 mr-2 text-green-500" />
-                    已复制到剪贴板
+                    <Copy className="h-4 w-4 mr-2" />
+                    手机友好图片
+                  </>
+                )}
+              </DropdownMenuItem>
+              
+              <DropdownMenuItem 
+                onClick={() => handleCopyImageToClipboard('desktop')}
+                disabled={isCopyingDesktop || isLoading || (!vditor && !beautifiedHtml)}
+              >
+                {isCopyingDesktop ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                    处理中...
                   </>
                 ) : (
                   <>
                     <Copy className="h-4 w-4 mr-2" />
-                    复制为图片
+                    桌面友好图片
                   </>
                 )}
               </DropdownMenuItem>
@@ -698,13 +688,12 @@ export function VditorPreview({ content, isLoading, error, onBack, onContentChan
               
               <DropdownMenuLabel className="text-xs text-muted-foreground">导出为文件</DropdownMenuLabel>
               
-              {/* Markdown导出选项 */}
+              {/* 保留其他导出选项不变 */}
               <DropdownMenuItem onClick={handleDownloadMarkdown}>
                 <FileText className="h-4 w-4 mr-2" />
                 Markdown文件
               </DropdownMenuItem>
               
-              {/* PDF导出选项 */}
               <DropdownMenuItem 
                 onClick={handleDownloadPDF}
                 disabled={isPdfGenerating || isLoading || (!vditor && !beautifiedHtml)}
@@ -718,24 +707,6 @@ export function VditorPreview({ content, isLoading, error, onBack, onContentChan
                   <>
                     <FileDown className="h-4 w-4 mr-2" />
                     PDF文件
-                  </>
-                )}
-              </DropdownMenuItem>
-              
-              {/* 图片下载选项 */}
-              <DropdownMenuItem 
-                onClick={handleExportImage}
-                disabled={isImageGenerating || isLoading || (!vditor && !beautifiedHtml)}
-              >
-                {isImageGenerating ? (
-                  <>
-                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                    生成图片中...
-                  </>
-                ) : (
-                  <>
-                    <Image className="h-4 w-4 mr-2" />
-                    下载图片
                   </>
                 )}
               </DropdownMenuItem>
