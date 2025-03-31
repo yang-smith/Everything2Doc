@@ -232,9 +232,7 @@ PROMPT_SUMMARY_CONTENT = """
 
 PROMPT_MERGE_DOC = """ 
 帮我将下面的多个part_doc合并成一个part_doc。
-从读者角度出发，你的读者是群成员，注意根据群的调性调整文本风格。
-合并的part_doc内容尽量丰富细节。
-你可以使用少量的表情符号（可选）、表格、Mermaid图表和流程图（可选）来增强阅读体验。
+合并的part_doc内容去除重复内容，保留尽可能多的细节。
 {part_docs}
 
 直接输出合并后的part_doc
