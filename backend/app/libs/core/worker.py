@@ -401,7 +401,7 @@ def generate_doc_single_chunk(chat_records: str, doc_type: str, model: str = "de
     )
 
 
-async def generate_doc_async(chat_records: str, doc_type: str, model: str = "deepseek-reasoner", max_tokens: int = 100000):
+async def generate_doc_async(chat_records: str, doc_type: str, model: str = "deepseek-reasoner", max_tokens: int = 50000):
     """生成文档（异步版本）"""
     logger.info(f"=== 开始文档生成 ===")
     logger.info(f"聊天记录长度: {len(chat_records)} 字符")
