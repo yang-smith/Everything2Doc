@@ -33,7 +33,8 @@ export function Sidebar() {
   const [uploadOpen, setUploadOpen] = React.useState(false)
   const currentProjectId = useProjectStore(state => state.currentProjectId)
   const setCurrentProject = useProjectStore(state => state.setCurrentProject)
-  const [projects, setProjects] = React.useState<Project[]>([])
+  const projects = useProjectStore(state => state.projects)
+  const fetchProjects = useProjectStore(state => state.fetchProjects)
   const pathname = usePathname()
   const { toast } = useToast()
   
@@ -41,8 +42,8 @@ export function Sidebar() {
   const [newProjectName, setNewProjectName] = React.useState<string>("")
   
   React.useEffect(() => {
-    api.getProjects().then(setProjects)
-  }, [])
+    fetchProjects()
+  }, [fetchProjects])
 
   const handleRenameProject = async (projectId: string) => {
     if (!newProjectName.trim()) {
@@ -52,8 +53,7 @@ export function Sidebar() {
     
     try {
       await api.renameProject(projectId, newProjectName.trim())
-      const updatedProjects = await api.getProjects()
-      setProjects(updatedProjects)
+      await fetchProjects()
       setEditingProjectId(null)
       toast({
         title: "项目已重命名",

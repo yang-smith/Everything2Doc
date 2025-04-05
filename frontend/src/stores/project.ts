@@ -1,7 +1,8 @@
 import { create } from 'zustand'
 // import { shallow } from 'zustand/shallow'
 import { ChatMessage } from '@/lib/chat-parser'
-
+import { Project } from '@/types/workspace'
+import { api } from '@/lib/api'
 
 interface ChatState {
   messages: ChatMessage[]
@@ -35,6 +36,9 @@ interface ProjectState {
   recommendations: Record<string, string[]>
   setRecommendations: (projectId: string, recommendations: string[]) => void
   setTimelineWidth: (width: string) => void
+  
+  projects: Project[]
+  fetchProjects: () => Promise<void>
 }
 
 const initialChatState: ChatState = {
@@ -150,7 +154,17 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
       ...state.uiState,
       timelineWidth: width
     }
-  }))
+  })),
+  
+  projects: [],
+  fetchProjects: async () => {
+    try {
+      const projects = await api.getProjects()
+      set({ projects })
+    } catch (error) {
+      console.error("Failed to fetch projects:", error)
+    }
+  },
 }))
 
 // 便捷的选择器

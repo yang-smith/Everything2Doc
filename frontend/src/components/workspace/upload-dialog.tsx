@@ -11,10 +11,14 @@ interface UploadDialogProps {
 
 export function UploadDialog({ open, onOpenChange }: UploadDialogProps) {
   const setCurrentProject = useProjectStore(state => state.setCurrentProject)
+  const fetchProjects = useProjectStore(state => state.fetchProjects)
 
-  const handleUploadComplete = (projectId: string) => {
+  const handleUploadComplete = async (projectId: string) => {
     // Update global project state
     setCurrentProject(projectId)
+    
+    // Refresh projects list
+    await fetchProjects()
     
     // Close dialog
     onOpenChange(false)
