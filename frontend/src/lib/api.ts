@@ -313,4 +313,20 @@ export const api = {
 
     return data;
   },
+
+  async deleteProject(projectId: string): Promise<{success: boolean, message: string}> {
+    const token = localStorage.getItem("token");
+    if (!token) {
+      throw new Error("Token is missing, please login first");
+    }
+    const response = await fetch(`${API_BASE}/api/projects/${projectId}`, {
+      method: 'DELETE',
+      headers: {
+        "Authorization": `Bearer ${token}`
+      }
+    });
+  
+    if (!response.ok) throw new Error('Failed to delete project');
+    return response.json();
+  },
 } 

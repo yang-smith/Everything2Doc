@@ -3,8 +3,11 @@ from typing import List, Optional, Dict, Any
 from sqlmodel import Session, select
 import logging
 from sqlalchemy import text
+import os
+import shutil
 
-from app.models.project import Project, ProjectStatus
+from app.models.project import Project, ProjectStatus, InputDocument, OutputDocument
+from app.utils.file_handler import FileHandler
 
 logger = logging.getLogger(__name__)
 
@@ -102,5 +105,35 @@ class ProjectService:
             
         except Exception as e:
             logger.error(f"重命名项目失败: {str(e)}", exc_info=True)
+            db.rollback()
+            raise
+
+    @staticmethod
+    def delete_project(db: Session, project_id: str) -> bool:
+        """
+        删除项目及关联的文件夹和数据库记录
+        """
+        try:
+            input_docs = db.exec(select(InputDocument).where(InputDocument.project_id == project_id)).all()
+            output_docs = db.exec(select(OutputDocument).where(OutputDocument.project_id == project_id)).all()
+            
+            project_dir = FileHandler.delete_project_files(project_id)
+    
+            for doc in input_docs:
+                db.delete(doc)
+            
+            for doc in output_docs:
+                db.delete(doc)
+            
+            project = db.exec(select(Project).where(Project.id == project_id)).first()
+            if not project:
+                return False
+            
+            db.delete(project)
+            db.commit()
+            
+            return True
+        except Exception as e:
+            logger.error(f"删除项目失败: {str(e)}", exc_info=True)
             db.rollback()
             raise

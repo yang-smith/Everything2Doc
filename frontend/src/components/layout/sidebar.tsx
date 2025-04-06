@@ -6,7 +6,7 @@ import { usePathname } from "next/navigation"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { Plus, FolderOpen, ChevronLeft, ChevronRight, Settings, PenLine, Home, User } from "lucide-react"
+import { Plus, FolderOpen, ChevronLeft, ChevronRight, Settings, PenLine, Home, User, Trash2 } from "lucide-react"
 import { UploadDialog } from "@/components/workspace/upload-dialog"
 import { useProjectStore } from "@/stores/project"
 import { Project } from "@/types/workspace"
@@ -66,6 +66,33 @@ export function Sidebar() {
         description: "无法重命名项目，请重试",
         variant: "destructive",
       })
+    }
+  }
+
+  const handleDeleteProject = async (projectId: string, projectName: string) => {
+    if (!confirm(`确定要删除项目 "${projectName}" 吗？此操作不可撤销。`)) {
+      return;
+    }
+    
+    try {
+      await api.deleteProject(projectId);
+      await fetchProjects();
+      
+      if (projectId === currentProjectId) {
+        setCurrentProject("");
+      }
+      
+      toast({
+        title: "项目已删除",
+        description: `项目 "${projectName}" 已成功删除`
+      });
+    } catch (error) {
+      console.error("删除项目失败:", error);
+      toast({
+        title: "删除失败", 
+        description: "无法删除项目，请重试",
+        variant: "destructive",
+      });
     }
   }
 
@@ -157,19 +184,33 @@ export function Sidebar() {
                       </Link>
                       
                       {!collapsed && (
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-7 w-7 absolute right-1 opacity-0 group-hover:opacity-100 transition-opacity"
-                          onClick={(e) => {
-                            e.preventDefault()
-                            e.stopPropagation()
-                            setEditingProjectId(project.id)
-                            setNewProjectName(project.name)
-                          }}
-                        >
-                          <PenLine className="h-3.5 w-3.5" />
-                        </Button>
+                        <>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7 absolute right-8 opacity-0 group-hover:opacity-100 transition-opacity"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              setEditingProjectId(project.id);
+                              setNewProjectName(project.name);
+                            }}
+                          >
+                            <PenLine className="h-3.5 w-3.5" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7 absolute right-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              handleDeleteProject(project.id, project.name);
+                            }}
+                          >
+                            <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                          </Button>
+                        </>
                       )}
                     </>
                   )}

@@ -87,3 +87,41 @@ def rename_project(project_id: str,
         
     except Exception as e:
         return {"success": False, "error": str(e)}
+
+@router.delete("/{project_id}")
+def delete_project(project_id: str, 
+                   db: Session = Depends(get_db),
+                   current_user: User = Depends(get_current_user)):
+    """删除项目"""
+    try:
+        existing_project = ProjectService.get_project(db, project_id)
+        
+        if not existing_project:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="项目不存在"
+            )
+        
+        if existing_project.get('user_id') != current_user.id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="无权操作此项目"
+            )
+        
+        success = ProjectService.delete_project(db, project_id)
+        
+        if success:
+            return {"success": True, "message": "项目删除成功"}
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="项目删除失败"
+            )
+            
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"删除项目时出错: {str(e)}"
+        )

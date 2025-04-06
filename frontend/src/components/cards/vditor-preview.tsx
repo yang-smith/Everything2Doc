@@ -7,7 +7,6 @@ import { ChevronLeft, Loader2, FileDown, AlertTriangle, FileText, Sparkles, Imag
 import { useProjectStore } from "@/stores/project"
 import Vditor from 'vditor'
 import 'vditor/dist/index.css'
-import { api } from '@/lib/api'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -17,6 +16,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { toast } from "@/hooks/use-toast"
+import { MarkdownBeautifier } from "@/components/markdown-beautifier"
 
 interface AIInlineHtmlRendererProps {
   htmlContent: string;
@@ -75,6 +75,8 @@ export function VditorPreview({ content, isLoading, error, onBack, onContentChan
   const [isCopyingMobile, setIsCopyingMobile] = useState(false)
   const [isCopyingDesktop, setIsCopyingDesktop] = useState(false)
   const [copySuccess, setCopySuccess] = useState(false)
+  const [showSimpleBeautifier, setShowSimpleBeautifier] = useState(false)
+  const [beautifyMode, setBeautifyMode] = useState<'mobile' | 'desktop'>('mobile')
 
   useEffect(() => {
     const vditorInstance = new Vditor("vditor-preview", {
@@ -131,30 +133,16 @@ export function VditorPreview({ content, isLoading, error, onBack, onContentChan
     URL.revokeObjectURL(url)
   }
 
-  const handleBeautifyDocument = async () => {
-    if (!vditor || isBeautifying) return
-    
-    try {
-      setIsBeautifying(true)
-      const markdownContent = vditor.getValue()
-      setLastContent(markdownContent) // 保存当前内容
-      
-      // 使用Document2HTML API将Markdown转换为美化的HTML
-      const response = await api.Document2HTML(markdownContent, 'google/gemini-2.0-flash-001')
-      setBeautifiedHtml(response.result)
-      setShowBeautified(true)
-      
-    } catch (error) {
-      console.error('文档美化失败:', error)
-      alert('文档美化失败，请稍后重试')
-    } finally {
-      setIsBeautifying(false)
-    }
-  }
+  const handleBeautifyDocument = () => {
+    setShowSimpleBeautifier(true);
+    setBeautifiedHtml(""); // Clear old AI-generated HTML if any
+    setShowBeautified(false);
+  };
 
   const toggleBeautifiedView = () => {
-    if (showBeautified) {
+    if (showBeautified || showSimpleBeautifier) {
       setShowBeautified(false);
+      setShowSimpleBeautifier(false);
       
       if (vditor) {
         try {
@@ -214,10 +202,9 @@ export function VditorPreview({ content, isLoading, error, onBack, onContentChan
       if (vditor) {
         const currentContent = vditor.getValue();
         setLastContent(currentContent);
-      } else {
-        console.warn("切换到美化视图时，Vditor实例不存在");
       }
-      setShowBeautified(true);
+      // Simply show beautifier, no AI call needed
+      setShowSimpleBeautifier(true);
     }
   };
 
@@ -620,21 +607,14 @@ export function VditorPreview({ content, isLoading, error, onBack, onContentChan
           <Button
             variant="outline"
             size="sm"
-            onClick={showBeautified ? toggleBeautifiedView : handleBeautifyDocument}
-            disabled={isBeautifying || isLoading || (!vditor && !beautifiedHtml)}
+            onClick={showSimpleBeautifier || showBeautified ? toggleBeautifiedView : handleBeautifyDocument}
+            disabled={isLoading || (!vditor && !beautifiedHtml)}
             className="gap-1"
           >
-            {isBeautifying ? (
-              <>
-                <Loader2 className="h-4 w-4 animate-spin mr-1" />
-                美化中...
-              </>
-            ) : (
-              <>
-                <Sparkles className="h-4 w-4" />
-                {showBeautified ? "返回编辑" : "美化文档"}
-              </>
-            )}
+            <>
+              <Sparkles className="h-4 w-4" />
+              {showSimpleBeautifier || showBeautified ? "返回编辑" : "美化文档"}
+            </>
           </Button>
           
           {/* 分享功能下拉菜单 - 简化版 */}
@@ -735,6 +715,11 @@ export function VditorPreview({ content, isLoading, error, onBack, onContentChan
           // 显示美化后的HTML内容 - 添加ref
           <div ref={contentRef} className="relative h-full p-4">
             <AIInlineHtmlRenderer htmlContent={beautifiedHtml} />
+          </div>
+        ) : showSimpleBeautifier ? (
+          // New simple beautified content
+          <div ref={contentRef} className="relative h-full p-4">
+            <MarkdownBeautifier markdown={lastContent || content} theme="mobile" />
           </div>
         ) : (
           // 显示原始编辑器内容 - 包装一个带ref的div

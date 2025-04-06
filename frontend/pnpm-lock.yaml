@@ -44,6 +44,9 @@ dependencies:
   '@tiptap/starter-kit':
     specifier: ^2.11.5
     version: 2.11.5
+  '@types/markdown-it':
+    specifier: ^14.1.2
+    version: 14.1.2
   class-variance-authority:
     specifier: ^0.7.1
     version: 0.7.1
@@ -59,6 +62,9 @@ dependencies:
   framer-motion:
     specifier: ^11.18.2
     version: 11.18.2(react-dom@19.0.0)(react@19.0.0)
+  highlight.js:
+    specifier: ^11.11.1
+    version: 11.11.1
   html2canvas:
     specifier: ^1.4.1
     version: 1.4.1
@@ -71,6 +77,9 @@ dependencies:
   lucide-react:
     specifier: ^0.468.0
     version: 0.468.0(react@19.0.0)
+  markdown-it:
+    specifier: ^14.1.0
+    version: 14.1.0
   mermaid:
     specifier: ^11.4.1
     version: 11.4.1
@@ -116,6 +125,9 @@ dependencies:
   throttle:
     specifier: ^1.0.3
     version: 1.0.3
+  ts-dom-to-image:
+    specifier: ^1.0.28
+    version: 1.0.28
   vditor:
     specifier: ^3.10.9
     version: 3.10.9
@@ -4961,6 +4973,11 @@ packages:
     resolution: {integrity: sha512-tzcUFauisWKNHaRkN4Wjl/ZA07gENAjFl3J/c480dprkGTg5EQstgaNFqBfUqCq54kZRIEcreTsAgF/m2quD7A==}
     dev: false
 
+  /highlight.js@11.11.1:
+    resolution: {integrity: sha512-Xwwo44whKBVCYoliBQwaPvtd/2tYFkRQtXDWj1nackaV2JPXx3L0+Jvd8/qCJ2p+ML0/XVkJ2q+Mr+UVdpJK5w==}
+    engines: {node: '>=12.0.0'}
+    dev: false
+
   /highlightjs-vue@1.0.0:
     resolution: {integrity: sha512-PDEfEF102G23vHmPhLyPboFCD+BkMGu+GuJe2d9/eH4FsCwvgBpnc9n0pGE+ffKdph38s6foEZiEjdgHdzp+IA==}
     dev: false
@@ -7677,6 +7694,10 @@ packages:
   /ts-dedent@2.2.0:
     resolution: {integrity: sha512-q5W7tVM71e2xjHZTlgfTDoPF/SmqKG5hddq9SzR49CH2hayqRKJtQ4mtRlSxKaJlR/+9rEM+mnBHf7I2/BQcpQ==}
     engines: {node: '>=6.10'}
+    dev: false
+
+  /ts-dom-to-image@1.0.28:
+    resolution: {integrity: sha512-E1CdifdKw23Yts/Ubr7C7quBpjv8pbjkaipC+XqtL1BE8hB5+Se/VRDs6SdMyKhaCImJ72Vjhj+x2O70qiGkWA==}
     dev: false
 
   /ts-interface-checker@0.1.13:
