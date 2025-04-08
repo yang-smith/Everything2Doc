@@ -253,18 +253,8 @@ export const api = {
   },
 
   createDocStream(projectId: string, docType: string, model: string): EventSource {
-    let encodedDocType = encodeURIComponent(docType);
-    if (docType == '常见问答文档'){
-      encodedDocType = 'QA';
-    }
-    if (docType == '干货文档'){
-      encodedDocType = 'knowledge';
-    }
-    if (docType == '总结文档'){
-      encodedDocType = 'summary';
-    }
     const eventSource = new EventSource(
-      `${API_BASE}/api/chat/${projectId}/doc_stream?doc_type=${encodedDocType}&model=${model}`
+      `${API_BASE}/api/chat/${projectId}/doc_stream?doc_type=${docType}&model=${model}`
     );
     return eventSource;
   },

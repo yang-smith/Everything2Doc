@@ -26,6 +26,20 @@ const AI_MODELS = [
   }
 ] as const
 
+// Add fixed recommendations
+const RECOMMENDATIONS = [
+  {
+    id: 'summary',
+    title: '内容速览👑',
+    description: 'AI化身御前总管，30秒为您整理99+群聊信息流'
+  },
+  {
+    id: 'knowledge',
+    title: '精华萃取🏯',
+    description: '大佬群里狂输出，AI变身拖网户。精华自动标重点，表情包里出学术！'
+  }
+] as const
+
 type AIModel = typeof AI_MODELS[number]['value']
 
 export function RecommendedActions({ 
@@ -91,7 +105,7 @@ export function RecommendedActions({
       >
         <div>
           <h2 className="text-xl font-semibold bg-gradient-to-r from-foreground to-foreground/80 bg-clip-text text-transparent">
-            推荐生成
+            AI助手
           </h2>
         </div>
       </motion.div>
@@ -99,72 +113,47 @@ export function RecommendedActions({
       <ScrollArea className="flex-1 -mx-6 px-6">
         <AnimatePresence mode="wait">
           <motion.div className="grid gap-4">
-            {loading ? (
-              // 加载动画
-              Array(4).fill(0).map((_, i) => (
-                <motion.div
-                  key={`skeleton-${i}`}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: i * 0.1 }}
-                >
-                  <Card className="animate-pulse bg-gradient-to-r from-card to-card/80">
-                    <div className="p-6 h-24" />
-                  </Card>
-                </motion.div>
-              ))
-            ) : error ? (
+            {RECOMMENDATIONS.map((recommendation, index) => (
               <motion.div
-                initial={{ opacity: 0, scale: 0.95 }}
-                animate={{ opacity: 1, scale: 1 }}
+                key={recommendation.id}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: index * 0.1 }}
               >
-                <Card className="border-red-200 bg-red-50/50 backdrop-blur-sm">
-                  <div className="p-6 flex items-center gap-3 text-red-600">
-                    <AlertCircle className="h-6 w-6" />
-                    <span className="font-medium">{error}</span>
-                  </div>
+                <Card className="group relative overflow-hidden transition-all duration-300 hover:shadow-lg hover:bg-accent/5 border border-border/50">
+                  <motion.button
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                    onClick={() => onActionClick(recommendation.id, selectedModel)}
+                    className="relative w-full text-left p-6"
+                  >
+                    <div className="flex items-start gap-4">
+                      <motion.div 
+                        className="mt-1 p-2 rounded-full bg-primary/5"
+                        whileHover={{ rotate: 15 }}
+                      >
+                        <FileBarChart className="h-6 w-6 text-primary" />
+                      </motion.div>
+                      <div className="flex-1 min-w-0">
+                        <h3 className="text-base font-medium leading-tight mb-1">
+                          {recommendation.title}
+                        </h3>
+                        <p className="text-sm text-muted-foreground">
+                          {recommendation.description}
+                        </p>
+                      </div>
+                      <motion.div
+                        initial={{ x: -10, opacity: 0 }}
+                        animate={{ x: 0, opacity: 1 }}
+                        className="text-primary"
+                      >
+                        <ArrowRight className="h-5 w-5 transition-transform duration-300 group-hover:translate-x-1" />
+                      </motion.div>
+                    </div>
+                  </motion.button>
                 </Card>
               </motion.div>
-            ) : (
-              recommendations.slice(0, 4).map((action, index) => (
-                <motion.div
-                  key={action}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: index * 0.1 }}
-                >
-                  <Card className="group relative overflow-hidden transition-all duration-300 hover:shadow-lg hover:bg-accent/5 border border-border/50">
-                    <motion.button
-                      whileHover={{ scale: 1.02 }}
-                      whileTap={{ scale: 0.98 }}
-                      onClick={() => onActionClick(action, selectedModel)}
-                      className="relative w-full text-left p-6"
-                    >
-                      <div className="flex items-start gap-4">
-                        <motion.div 
-                          className="mt-1 p-2 rounded-full bg-primary/5"
-                          whileHover={{ rotate: 15 }}
-                        >
-                          <FileBarChart className="h-6 w-6 text-primary" />
-                        </motion.div>
-                        <div className="flex-1 min-w-0">
-                          <h3 className="text-base font-medium leading-tight mb-1">
-                            {action}
-                          </h3>
-                        </div>
-                        <motion.div
-                          initial={{ x: -10, opacity: 0 }}
-                          animate={{ x: 0, opacity: 1 }}
-                          className="text-primary"
-                        >
-                          <ArrowRight className="h-5 w-5 transition-transform duration-300 group-hover:translate-x-1" />
-                        </motion.div>
-                      </div>
-                    </motion.button>
-                  </Card>
-                </motion.div>
-              ))
-            )}
+            ))}
           </motion.div>
         </AnimatePresence>
       </ScrollArea>
