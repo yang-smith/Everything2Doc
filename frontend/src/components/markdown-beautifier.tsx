@@ -1002,8 +1002,18 @@ export function MarkdownBeautifier({
     }
   `;
 
+  // 修改 .markdown-beautifier-container 样式
+  const containerStyle = `
+    .markdown-beautifier-container {
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
+      width: 100%;
+    }
+  `;
+
   return (
-    <div className="relative">
+    <div className="markdown-beautifier-container">
       <style>
         {cardContainerStyles}
         {theme === 'mobile' 
@@ -1016,6 +1026,7 @@ export function MarkdownBeautifier({
                 ? minimalGrayStyles
                 : documentStyles
         }
+        {containerStyle}
       </style>
       
       <div className={`markdown-card-container ${isMobile ? 'mobile-view' : ''}`}>

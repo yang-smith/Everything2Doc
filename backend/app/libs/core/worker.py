@@ -421,7 +421,8 @@ async def generate_doc_async(chat_records: str, doc_type: str, model: str = "dee
         return generate_doc_single_chunk(segments[0], doc_type, model)
 
     logger.info("\n2. 并行处理段落...")
-    part_docs = await process_chunk_parallel_async(segments, model=model, doc_type=doc_type)
+    default_model = "google/gemini-2.0-flash-001"
+    part_docs = await process_chunk_parallel_async(segments, model=default_model, doc_type=doc_type)
     logger.info(f"生成了 {len(part_docs)} 个部分文档")
     
     # 合并文档并检查token数量
