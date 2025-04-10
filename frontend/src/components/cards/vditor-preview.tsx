@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { toast } from "@/hooks/use-toast"
 import { MarkdownBeautifier } from "@/components/markdown-beautifier"
+import DocumentParser from "@/components/document-phraser"
 import { toPng } from 'html-to-image'
 
 interface VditorPreviewProps {
@@ -30,14 +31,10 @@ interface VditorPreviewProps {
 export function VditorPreview({ content, isLoading, error, onBack, onContentChange }: VditorPreviewProps) {
   const currentProjectId = useProjectStore(state => state.currentProjectId)
   const [vditor, setVditor] = useState<Vditor | null>(null)
-  const [isPdfGenerating, setIsPdfGenerating] = useState(false)
   const [beautifiedHtml, setBeautifiedHtml] = useState<string>("")
   const [showBeautified, setShowBeautified] = useState(false)
   const [lastContent, setLastContent] = useState<string>("")
   const contentRef = useRef<HTMLDivElement>(null)
-  const [isCopyingMobile, setIsCopyingMobile] = useState(false)
-  const [isCopyingDesktop, setIsCopyingDesktop] = useState(false)
-  const [copySuccess, setCopySuccess] = useState(false)
   const [showSimpleBeautifier, setShowSimpleBeautifier] = useState(true)
   const [beautifyMode, setBeautifyMode] = useState<'mobile' | 'desktop' | 'apple-notes' | 'minimal-gray' | 'imperial'>('minimal-gray')
 
@@ -123,12 +120,24 @@ export function VditorPreview({ content, isLoading, error, onBack, onContentChan
     URL.revokeObjectURL(url)
   }
 
+  const isDocumentFormat = (text: string) => {
+    if (!text) return false;
+    // Check in the first 5 lines of content for the document name tag
+    const firstFewLines = text.split('\n').slice(0, 5).join('\n');
+    return firstFewLines.includes('<document name>');
+  }
+
   const handleExportImage = useCallback(async () => {
     try {
-      const targetElement = document.querySelector('.markdown-card-container')
+      // Check if we're using DocumentParser or MarkdownBeautifier
+      const isDocFormat = isDocumentFormat(lastContent || content);
+      
+      // Select the appropriate element based on content type
+      const targetSelector = isDocFormat ? '.document-phraser' : '.markdown-card-container';
+      const targetElement = document.querySelector(targetSelector);
       
       if (!targetElement) {
-        throw new Error("无法找到要导出的内容元素");
+        throw new Error(`无法找到要导出的内容元素 (${targetSelector})`);
       }
       
       const originalStyle = targetElement.getAttribute('style') || '';
@@ -163,7 +172,7 @@ export function VditorPreview({ content, isLoading, error, onBack, onContentChan
         variant: "destructive",
       });
     }
-  }, [showSimpleBeautifier, currentProjectId]);
+  }, [showSimpleBeautifier, currentProjectId, lastContent, content, isDocumentFormat]);
 
   useEffect(() => {
     return () => {
@@ -208,50 +217,52 @@ export function VditorPreview({ content, isLoading, error, onBack, onContentChan
           
           {showSimpleBeautifier && (
             <>
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="outline" size="sm" className="gap-1">
-                    <FileText className="h-4 w-4" />
-                    切换样式
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <DropdownMenuLabel>选择展示风格</DropdownMenuLabel>
-                  <DropdownMenuSeparator />
-                  
-                  <DropdownMenuItem 
-                    onClick={() => setBeautifyMode('apple-notes')}
-                    className={beautifyMode === 'apple-notes' ? 'bg-accent' : ''}
-                  >
-                    <span className="mr-2">🍎</span>
-                    Apple Notes 风格
-                  </DropdownMenuItem>
-                  
-                  <DropdownMenuItem 
-                    onClick={() => setBeautifyMode('minimal-gray')}
-                    className={beautifyMode === 'minimal-gray' ? 'bg-accent' : ''}
-                  >
-                    <span className="mr-2">🔳</span>
-                    简约高级灰
-                  </DropdownMenuItem>
-                  
-                  <DropdownMenuItem 
-                    onClick={() => setBeautifyMode('mobile')}
-                    className={beautifyMode === 'mobile' ? 'bg-accent' : ''}
-                  >
-                    <span className="mr-2">📱</span>
-                    移动端样式
-                  </DropdownMenuItem>
-                  
-                  <DropdownMenuItem 
-                    onClick={() => setBeautifyMode('imperial')}
-                    className={beautifyMode === 'imperial' ? 'bg-accent' : ''}
-                  >
-                    <span className="mr-2">👑</span>
-                    古朴风格
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
+              {!isDocumentFormat(lastContent || content) && (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline" size="sm" className="gap-1">
+                      <FileText className="h-4 w-4" />
+                      切换样式
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuLabel>选择展示风格</DropdownMenuLabel>
+                    <DropdownMenuSeparator />
+                    
+                    <DropdownMenuItem 
+                      onClick={() => setBeautifyMode('apple-notes')}
+                      className={beautifyMode === 'apple-notes' ? 'bg-accent' : ''}
+                    >
+                      <span className="mr-2">🍎</span>
+                      Apple Notes 风格
+                    </DropdownMenuItem>
+                    
+                    <DropdownMenuItem 
+                      onClick={() => setBeautifyMode('minimal-gray')}
+                      className={beautifyMode === 'minimal-gray' ? 'bg-accent' : ''}
+                    >
+                      <span className="mr-2">🔳</span>
+                      简约高级灰
+                    </DropdownMenuItem>
+                    
+                    <DropdownMenuItem 
+                      onClick={() => setBeautifyMode('mobile')}
+                      className={beautifyMode === 'mobile' ? 'bg-accent' : ''}
+                    >
+                      <span className="mr-2">📱</span>
+                      移动端样式
+                    </DropdownMenuItem>
+                    
+                    <DropdownMenuItem 
+                      onClick={() => setBeautifyMode('imperial')}
+                      className={beautifyMode === 'imperial' ? 'bg-accent' : ''}
+                    >
+                      <span className="mr-2">👑</span>
+                      古朴风格
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              )}
               
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
@@ -287,11 +298,15 @@ export function VditorPreview({ content, isLoading, error, onBack, onContentChan
           </div>
         ) : showSimpleBeautifier ? (
           <div ref={contentRef} className="relative h-full p-4">
-            <MarkdownBeautifier 
-              markdown={lastContent || content} 
-              theme={beautifyMode}
-              isMobile={beautifyMode === 'mobile'} 
-            />
+            {isDocumentFormat(lastContent || content) ? (
+              <DocumentParser inputText={lastContent || content} />
+            ) : (
+              <MarkdownBeautifier 
+                markdown={lastContent || content} 
+                theme={beautifyMode}
+                isMobile={beautifyMode === 'mobile'} 
+              />
+            )}
           </div>
         ) : (
           <div className="relative h-full">

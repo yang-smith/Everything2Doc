@@ -30,13 +30,13 @@ const AI_MODELS = [
 const RECOMMENDATIONS = [
   {
     id: 'summary',
-    title: '内容速览👑',
-    description: 'AI化身御前总管，30秒为您整理99+群聊信息流'
+    title: '生成精华日报',
+    description: '智能分析群聊内容，自动提取重要信息，生成结构化的每日精华摘要'
   },
   {
     id: 'knowledge',
-    title: '精华萃取🏯',
-    description: '大佬群里狂输出，AI变身拖网户。精华自动标重点，表情包里出学术！'
+    title: '生成干货文档',
+    description: '自动识别群聊中的知识要点，提取有价值内容，整理成系统化的学习文档'
   }
 ] as const
 
