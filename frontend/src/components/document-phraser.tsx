@@ -15,6 +15,7 @@ import { MessageSquare, Users, Calendar, TrendingUp, BookOpen, Quote, BarChart2,
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import mermaid from 'mermaid';
+import ReactMarkdown from 'react-markdown'
 
 // Parser function to extract content from custom tags
 function parseDocumentContent(text: string) {
@@ -51,10 +52,10 @@ function parseDocumentContent(text: string) {
   const discussionsMatch = text.match(/<hot discussions>([\s\S]*?)<\/hot discussions>/i)
   if (discussionsMatch) {
     const discussionsText = discussionsMatch[1]
-    const discussionBlocks = discussionsText.split(/(?=讨论主体[:：])/i).filter(block => block.trim())
+    const discussionBlocks = discussionsText.split(/(?=讨论主题[:：])/i).filter(block => block.trim())
     
     discussionBlocks.forEach(block => {
-      const topicMatch = block.match(/讨论主体[:：]([\s\S]*?)(?=内容[:：]|$)/i)
+      const topicMatch = block.match(/讨论主题[:：]([\s\S]*?)(?=内容[:：]|$)/i)
       const contentMatch = block.match(/内容[:：]([\s\S]*?)(?=关键词[:：]|$)/i)
       const keywordsMatch = block.match(/关键词[:：]([\s\S]*?)(?=参与讨论者[:：]|消息数量[:：]|$)/i)
       const participantsMatch = block.match(/参与讨论者[:：]([\s\S]*?)(?=消息数量[:：]|$)/i)
@@ -87,7 +88,6 @@ function parseDocumentContent(text: string) {
   document.tutorials = []
   const tutorialsMatch = text.match(/<tutorials>([\s\S]*?)<\/tutorials>/i)
   if (tutorialsMatch) {
-    console.log("Tutorials match found");
     const tutorialsText = tutorialsMatch[1]
     // Extract each tutorial block
     const tutorialMatches = tutorialsText.matchAll(/主题[:：]([\s\S]*?)分享者[:：]([\s\S]*?)详细内容[:：]([\s\S]*?)(?=主题[:：]|$)/gi)
@@ -102,7 +102,6 @@ function parseDocumentContent(text: string) {
         content,
         category: ["方法论", "教程", "资讯"][Math.floor(Math.random() * 3)]
       })
-      console.log("Added tutorial:", title)
     }
   }
   
@@ -110,7 +109,6 @@ function parseDocumentContent(text: string) {
   document.quotes = []
   const quotesMatch = text.match(/<quotes>([\s\S]*?)<\/quotes>/i)
   if (quotesMatch) {
-    console.log("Quotes match found");
     const quotesText = quotesMatch[1]
     // Simpler, more reliable approach to extract each quote
     const quoteMatches = quotesText.matchAll(/金句[:：]([\s\S]*?)金句来源[:：]([\s\S]*?)(?=金句[:：]|$)/gi)
@@ -119,7 +117,6 @@ function parseDocumentContent(text: string) {
       const quoteText = match[1].trim()
       const source = match[2].trim()
       document.quotes.push({ text: quoteText, source })
-      console.log("Added quote:", quoteText)
     }
   }
   
@@ -316,7 +313,9 @@ export default function DocumentParser({ inputText }: DocumentParserProps) {
                           <span>{discussion.messageCount}</span>
                         </div>
                       </div>
-                      <p className="text-sm text-muted-foreground mb-3">{discussion.content}</p>
+                      <div className="text-sm text-muted-foreground mb-3">
+                        <ReactMarkdown>{discussion.content}</ReactMarkdown>
+                      </div>
                       <div className="flex flex-wrap gap-2 mb-3">
                         {discussion.keywords.map((keyword: string, kidx: number) => (
                           <Badge key={kidx} variant="outline" className="keyword-badge bg-slate-100 dark:bg-slate-800">
@@ -361,7 +360,9 @@ export default function DocumentParser({ inputText }: DocumentParserProps) {
                       <div className="flex items-center gap-2 mb-3 text-sm text-muted-foreground">
                         <span>分享者：{tutorial.sharedBy}</span>
                       </div>
-                      <p className="text-sm whitespace-pre-line">{tutorial.content}</p>
+                      <div className="text-sm whitespace-pre-line">
+                        <ReactMarkdown>{tutorial.content}</ReactMarkdown>
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -453,6 +454,38 @@ export default function DocumentParser({ inputText }: DocumentParserProps) {
           </CardFooter>
         </Card>
       )}
+      <style jsx global>{`
+        .markdown-content ul, .markdown-content ol {
+          padding-left: 1.5rem;
+          margin-top: 0.5rem;
+          margin-bottom: 0.5rem;
+        }
+        .markdown-content ul {
+          list-style-type: disc;
+        }
+        .markdown-content ol {
+          list-style-type: decimal;
+        }
+        .markdown-content p {
+          margin-bottom: 0.5rem;
+        }
+        .markdown-content strong, .markdown-content b {
+          font-weight: 600;
+        }
+        .markdown-content em, .markdown-content i {
+          font-style: italic;
+        }
+        .markdown-content h1, .markdown-content h2, .markdown-content h3, 
+        .markdown-content h4, .markdown-content h5, .markdown-content h6 {
+          font-weight: 600;
+          margin-top: 1rem;
+          margin-bottom: 0.5rem;
+        }
+        .markdown-content a {
+          color: #3b82f6;
+          text-decoration: underline;
+        }
+      `}</style>
     </div>
   )
 }

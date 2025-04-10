@@ -130,10 +130,6 @@ async def stream_doc(
             doc_type = doc_request.doc_type
             model = doc_request.model
         
-        # 使用默认模型
-        if not model or model == 'undefined':
-            model = 'deepseek/deepseek-r1-distill-llama-70b'
-        
         # 获取项目聊天内容
         chat_content = document_service.get_project_chat_content(db, project_id)
         if not chat_content:
