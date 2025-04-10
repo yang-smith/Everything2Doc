@@ -20,6 +20,13 @@ export default function WorkspacePage() {
   }>({ content: '', isLoading: false })
   const [showDocument, setShowDocument] = useState(false)
 
+  useEffect(() => {
+    // 当项目ID变化时，如果正在显示文档，则返回到推荐状态
+    if (showDocument) {
+      setShowDocument(false);
+    }
+  }, [currentProjectId]); 
+
   const handleStreamDocument = async (actionTitle: string, model: string) => {
     setDocumentContent({ content: '', isLoading: true, error: undefined })
     setShowDocument(true)
