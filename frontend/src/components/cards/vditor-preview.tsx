@@ -141,6 +141,26 @@ export function VditorPreview({ content, isLoading, error, onBack, onContentChan
       }
       
       const originalStyle = targetElement.getAttribute('style') || '';
+      
+      // 特别处理热门标签和关键词标签的字体大小
+      const heatBadges = targetElement.querySelectorAll('.heatlevel-badge');
+      const keywordBadges = targetElement.querySelectorAll('.keyword-badge');
+      
+      // 保存原始样式
+      const originalStyles = new Map();
+      
+      // 设置热度标签样式
+      heatBadges.forEach((badge, i) => {
+        originalStyles.set(`heatlevel-${i}`, badge.getAttribute('style') || '');
+        badge.setAttribute('style', 'font-size: 0.75rem !important; white-space: nowrap !important; display: inline-flex !important;');
+      });
+      
+      // 设置关键词标签样式
+      keywordBadges.forEach((badge, i) => {
+        originalStyles.set(`keyword-${i}`, badge.getAttribute('style') || '');
+        badge.setAttribute('style', 'font-size: 0.75rem !important; white-space: nowrap !important; display: inline-flex !important;');
+      });
+      
       targetElement.setAttribute('style', `${originalStyle}; margin: 0 !important;`);
       
       toast({
@@ -148,11 +168,22 @@ export function VditorPreview({ content, isLoading, error, onBack, onContentChan
         description: "请稍候...",
       });
       
-      await new Promise(resolve => setTimeout(resolve, 100));
+      // 增加等待时间确保样式应用
+      await new Promise(resolve => setTimeout(resolve, 300));
       
       const dataUrl = await toPng(targetElement as HTMLElement);
       
+      // 恢复原始样式
       targetElement.setAttribute('style', originalStyle);
+      
+      // 恢复标签样式
+      heatBadges.forEach((badge, i) => {
+        badge.setAttribute('style', originalStyles.get(`heatlevel-${i}`) || '');
+      });
+      
+      keywordBadges.forEach((badge, i) => {
+        badge.setAttribute('style', originalStyles.get(`keyword-${i}`) || '');
+      });
       
       const link = document.createElement('a');
       link.download = `document-${currentProjectId?.slice(0, 8) || 'untitled'}.png`;

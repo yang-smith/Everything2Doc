@@ -239,9 +239,9 @@ export default function DocumentParser({ inputText }: DocumentParserProps) {
   const topicChart = generateTopicChart()
   
   return (
-    <div className="document-phraser container mx-auto py-8 space-y-8">
+    <div className="container mx-auto py-8 space-y-8">
       {parsedDocument && (
-        <Card className="w-full max-w-4xl mx-auto shadow-lg border-0 overflow-hidden">
+        <Card className="document-phraser w-full max-w-4xl mx-auto shadow-lg border-0 overflow-hidden">
           {/* Document Header */}
           <div className="bg-gradient-to-r from-purple-600 to-blue-500 p-6 text-white">
             <div className="flex items-center justify-between">
@@ -306,7 +306,7 @@ export default function DocumentParser({ inputText }: DocumentParserProps) {
                           <Badge variant={
                             discussion.heatLevel === "热门" ? "destructive" : 
                             discussion.heatLevel === "高热" ? "default" : "secondary"
-                          } className="rounded-sm">
+                          } className="heatlevel-badge rounded-sm">
                             {discussion.heatLevel}
                           </Badge>
                           <h3 className="font-semibold">{discussion.topic}</h3>
@@ -319,7 +319,7 @@ export default function DocumentParser({ inputText }: DocumentParserProps) {
                       <p className="text-sm text-muted-foreground mb-3">{discussion.content}</p>
                       <div className="flex flex-wrap gap-2 mb-3">
                         {discussion.keywords.map((keyword: string, kidx: number) => (
-                          <Badge key={kidx} variant="outline" className="bg-slate-100 dark:bg-slate-800">
+                          <Badge key={kidx} variant="outline" className="keyword-badge bg-slate-100 dark:bg-slate-800">
                             {keyword}
                           </Badge>
                         ))}
