@@ -122,9 +122,9 @@ export function VditorPreview({ content, isLoading, error, onBack, onContentChan
 
   const isDocumentFormat = (text: string) => {
     if (!text) return false;
-    // Check in the first 5 lines of content for the document name tag
+    // Check in the first 5 lines of content for document format indicators
     const firstFewLines = text.split('\n').slice(0, 5).join('\n');
-    return firstFewLines.includes('<document name>');
+    return firstFewLines.includes('<document name>') || firstFewLines.includes('<title>');
   }
 
   const handleExportImage = useCallback(async () => {

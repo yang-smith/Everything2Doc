@@ -21,8 +21,8 @@ import ReactMarkdown from 'react-markdown'
 function parseDocumentContent(text: string) {
   const document: Record<string, any> = {}
   
-  // Extract document name
-  const documentNameMatch = text.match(/<document name>([\s\S]*?)<\/document name>/i)
+  // Extract document name from either document name or title tags
+  const documentNameMatch = text.match(/<document name>([\s\S]*?)<\/document name>/i) || text.match(/<title>([\s\S]*?)<\/title>/i)
   document.name = documentNameMatch ? documentNameMatch[1].trim() : "未命名文档"
   
   // Extract summary

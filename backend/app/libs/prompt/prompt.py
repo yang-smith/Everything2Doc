@@ -283,7 +283,10 @@ PROMPT_SUMMARY_CONTENT = """
 # 输出格式
 使用以下固定格式输出内容：
 
-`<document name>每日社群精华摘要</document name>
+`
+<title>
+每日社群精华摘要
+</title>
 
 <summary>
 [100字以内的摘要，概述当日讨论核心内容和热点]
