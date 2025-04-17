@@ -15,6 +15,18 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { LogOut, Settings } from "lucide-react"
 
+// 节流函数
+function throttle(func: Function, limit: number) {
+  let inThrottle: boolean
+  return function(this: any, ...args: any[]) {
+    if (!inThrottle) {
+      func.apply(this, args)
+      inThrottle = true
+      setTimeout(() => inThrottle = false, limit)
+    }
+  }
+}
+
 export function Navbar() {
   const [isVisible, setIsVisible] = useState(true)
   const [isTop, setIsTop] = useState(true)
@@ -116,15 +128,14 @@ export function Navbar() {
                 </DropdownMenuContent>
               </DropdownMenu>
             ) : (
-              // User is NOT logged in - show login/register links
               <div className="flex items-center gap-2">
                 <Link href="/login">
-                  <button className="text-sm font-medium hover:text-primary">
+                  <button className="flex items-center justify-center px-4 py-2 bg-[#4D35FF] rounded-lg text-white font-medium">
                     登录
                   </button>
                 </Link>
                 <Link href="/register">
-                  <button className="bg-primary text-primary-foreground rounded-md px-3 py-1.5 text-sm font-medium">
+                  <button className="flex items-center justify-center px-4 py-2 border border-[#4D35FF] rounded-lg text-[#4D35FF] font-medium">
                     注册
                   </button>
                 </Link>
@@ -135,16 +146,4 @@ export function Navbar() {
       </div>
     </motion.nav>
   )
-}
-
-// 节流函数
-function throttle(func: Function, limit: number) {
-  let inThrottle: boolean
-  return function(this: any, ...args: any[]) {
-    if (!inThrottle) {
-      func.apply(this, args)
-      inThrottle = true
-      setTimeout(() => inThrottle = false, limit)
-    }
-  }
 }
