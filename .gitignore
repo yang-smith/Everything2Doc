@@ -6,7 +6,6 @@ __pycache__
 chat_records.txt
 wcf.txt
 wcf.lock
-*.png
 *.xlsx
 *.pkl
 *.graphml
@@ -16,7 +15,8 @@ venv
 .wcf.lock
 .pytest_cache
 *.md
-docs
+
+
 testDB
 output
 logs
