@@ -13,7 +13,7 @@ import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@
 // Add AI models array at top level
 const AI_MODELS = [
   {
-    value: 'deepseek-v3-0324',
+    value: 'deepseek/deepseek-chat-v3-0324',
     label: 'deepseek-v3-0324'
   },
   {
@@ -57,7 +57,7 @@ export function RecommendedActions({
   const recommendations = allRecommendations[projectId] || []
 
   // Change default model to deepseek
-  const [selectedModel, setSelectedModel] = useState<AIModel>('deepseek-v3-0324')
+  const [selectedModel, setSelectedModel] = useState<AIModel>('deepseek/deepseek-chat-v3-0324')
 
   useEffect(() => {
     let mounted = true
