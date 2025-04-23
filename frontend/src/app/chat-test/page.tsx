@@ -1,373 +1,276 @@
-"use client"
+"use client";
 
-import React, { useState, useEffect, useRef } from 'react';
+import { useState, useRef, useCallback } from 'react';
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
+import { Loader2, Image as ImageIcon, AlertTriangle } from "lucide-react";
+import { toPng } from 'html-to-image';
+import { toast } from "@/hooks/use-toast";
+import { motion } from "framer-motion";
 import { api } from '@/lib/api';
-// 动态导入html2pdf.js以避免SSR问题
-import dynamic from 'next/dynamic';
 
-// AIInlineHtmlRenderer组件
-interface AIInlineHtmlRendererProps {
-  htmlContent: string;
-}
+// --- Classification Setup ---
+const CONTENT_TYPES = {
+  FORMAL_LONG: '长的正经内容',
+  CHAT_LOG: '聊天记录',
+  SCATTERED: '挺多的零散内容',
+  OTHER: '其他'
+} as const;
 
-const AIInlineHtmlRenderer: React.FC<AIInlineHtmlRendererProps> = ({ htmlContent }) => {
-  // 配置DOMPurify允许内联样式和style标签
-  const sanitizeConfig = {
-    ADD_TAGS: ['style', 'link', 'meta'],
-    ADD_ATTR: ['style', 'charset', 'integrity', 'crossorigin', 'referrerpolicy', 'href', 'rel'],
-    WHOLE_DOCUMENT: true, // 允许完整的HTML文档结构
-    ALLOW_UNKNOWN_PROTOCOLS: true
-  };
-  
-  // 导入DOMPurify
-  const DOMPurify = require('dompurify');
-  
-  // 清理HTML内容以防止XSS攻击，同时保留样式
-  const sanitizedHtml = DOMPurify.sanitize(htmlContent, sanitizeConfig);
-  
-  return (
-    <div 
-      style={{
-        fontFamily: 'Arial, sans-serif',
-        lineHeight: 1.6,
-        color: '#333',
-        padding: '20px',
-        backgroundColor: '#fff',
-        borderRadius: '8px',
-        boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
-        maxWidth: '100%',
-        margin: '0 auto',
-        overflowWrap: 'break-word'
-      }}
-      dangerouslySetInnerHTML={{ __html: sanitizedHtml }} 
-    />
-  );
-};
+type ContentType = typeof CONTENT_TYPES[keyof typeof CONTENT_TYPES];
 
-// 页面样式
-const styles = {
-  demoPage: {
-    maxWidth: '1000px',
-    margin: '0 auto',
-    padding: '20px',
-    fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, sans-serif'
-  },
-  header: {
-    textAlign: 'center' as const,
-    marginBottom: '30px'
-  },
-  headerTitle: {
-    color: '#333',
-    marginBottom: '10px'
-  },
-  headerText: {
-    color: '#666'
-  },
-  inputContainer: {
-    display: 'flex',
-    marginBottom: '30px',
-    gap: '10px'
-  },
-  input: {
-    flex: '1',
-    padding: '12px 15px',
-    fontSize: '16px',
-    border: '1px solid #ddd',
-    borderRadius: '8px',
-    outline: 'none'
-  },
-  button: {
-    backgroundColor: '#3498db',
-    color: 'white',
-    border: 'none',
-    borderRadius: '8px',
-    padding: '0 25px',
-    fontSize: '16px',
-    cursor: 'pointer',
-    transition: 'background-color 0.2s'
-  },
-  downloadButton: {
-    backgroundColor: '#27ae60',
-    color: 'white',
-    border: 'none',
-    borderRadius: '8px',
-    padding: '12px 25px',
-    fontSize: '16px',
-    cursor: 'pointer',
-    transition: 'background-color 0.2s',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: '8px',
-    margin: '20px 0'
-  },
-  loadingState: {
-    display: 'flex',
-    flexDirection: 'column' as const,
-    alignItems: 'center' as const,
-    padding: '40px',
-    backgroundColor: '#f9f9f9',
-    borderRadius: '8px',
-    marginBottom: '30px'
-  },
-  spinner: {
-    border: '4px solid rgba(0, 0, 0, 0.1)',
-    borderLeftColor: '#3498db',
-    borderRadius: '50%',
-    width: '40px',
-    height: '40px',
-    animation: 'spin 1s linear infinite',
-    marginBottom: '15px'
-  },
-  contentWrapper: {
-    marginBottom: '30px'
-  },
-  pdfContainer: {
-    marginTop: '20px'
-  },
-  footer: {
-    backgroundColor: '#f5f5f5',
-    padding: '20px',
-    borderRadius: '8px',
-    marginTop: '40px'
-  },
-  footerTitle: {
-    marginTop: 0,
-    color: '#333'
-  },
-  footerList: {
-    paddingLeft: '20px'
-  },
-  footerListItem: {
-    marginBottom: '8px'
-  },
-  errorMessage: {
-    backgroundColor: '#ffeeee',
-    color: '#e74c3c',
-    padding: '15px',
-    borderRadius: '8px',
-    marginBottom: '20px',
-    borderLeft: '4px solid #e74c3c'
-  },
-  modelSelector: {
-    padding: '10px',
-    marginBottom: '20px',
-    borderRadius: '8px',
-    border: '1px solid #ddd',
-    fontSize: '16px',
-    width: '100%'
-  }
-};
+// Define the classification prompt structure
+const getClassificationPrompt = (text: string): string => `
+请判断以下输入内容的类型，从以下几种类型中选择最符合的一个：
+1.  "${CONTENT_TYPES.FORMAL_LONG}": 内容结构完整、主题明确、篇幅较长，像文章、报告、文档等。
+2.  "${CONTENT_TYPES.CHAT_LOG}": 包含明显的对话标记（如说话人姓名、时间戳、冒号分隔等），内容是多人或双人对话形式。
+3.  "${CONTENT_TYPES.SCATTERED}": 包含多个不连续的、主题可能分散的短文本片段、列表项、想法点等，整体缺乏连贯长文结构。
+4.  "${CONTENT_TYPES.OTHER}": 不属于以上任何一种，或者难以判断。
 
-// 添加关键帧动画
-const spinKeyframes = `
-  @keyframes spin {
-    to { transform: rotate(360deg); }
-  }
+**请只返回分类名称，例如直接返回 "${CONTENT_TYPES.FORMAL_LONG}" 或 "${CONTENT_TYPES.CHAT_LOG}"。不要添加任何额外的解释或文字。**
+
+# 输入内容 (仅为部分开头内容):
+${text}
+
+# 输出分类名称:
 `;
+// --- End Classification Setup ---
 
-const AIInlineHtmlDemo: React.FC = () => {
-  const [htmlContent, setHtmlContent] = useState<string>('');
+export default function ChatTestPage() {
+  const [inputText, setInputText] = useState<string>("");
+  const [generatedHtml, setGeneratedHtml] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
-  const [isGeneratingPdf, setIsGeneratingPdf] = useState<boolean>(false);
-  const [userPrompt, setUserPrompt] = useState<string>('');
   const [error, setError] = useState<string | null>(null);
-  const [selectedModel, setSelectedModel] = useState<string>('deepseek/deepseek-r1-distill-llama-70b');
-  const promptInputRef = useRef<HTMLInputElement>(null);
-  const contentRef = useRef<HTMLDivElement>(null);
+  const htmlDisplayRef = useRef<HTMLDivElement>(null);
+  const [isExporting, setIsExporting] = useState(false);
+  const [classifiedType, setClassifiedType] = useState<ContentType | null>(null);
+  const [isClassifying, setIsClassifying] = useState<boolean>(false);
 
-  // 添加关键帧动画样式到文档头
-  useEffect(() => {
-    const styleElement = document.createElement('style');
-    styleElement.innerHTML = spinKeyframes;
-    document.head.appendChild(styleElement);
-    
-    return () => {
-      document.head.removeChild(styleElement);
-    };
-  }, []);
 
-  // 处理用户输入变化
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setUserPrompt(e.target.value);
-  };
-
-  // 处理模型选择变化
-  const handleModelChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    setSelectedModel(e.target.value);
-  };
-
-  // 发送请求到API
-  const handleSendRequest = async () => {
-    if (!userPrompt.trim()) {
-      setError('请输入提示词');
+  const handleGenerateHtml = async () => {
+    if (!inputText.trim()) {
+      toast({
+        title: "输入为空",
+        description: "请输入内容。",
+        variant: "destructive",
+      });
       return;
     }
 
+    setIsLoading(true);
+    setIsClassifying(true); // Start classifying
+    setError(null);
+    setGeneratedHtml(null);
+    setClassifiedType(null); // Reset previous classification
+
+    let currentClassification: ContentType | null = null;
+    // Define the hardcoded model for HTML generation
+    const htmlGenerationModel = 'google/gemini-2.5-flash-preview'; // Hardcoded model for Document2HTML
+
     try {
-      setIsLoading(true);
-      setError(null);
-      
-      // 使用Document2HTML API替代chat API
-      const response = await api.Document2HTML(userPrompt, selectedModel);
-      console.log(response.result);
-      setHtmlContent(response.result);
-      
-      // 清空输入框
-      setUserPrompt('');
-      if (promptInputRef.current) {
-        promptInputRef.current.focus();
+      // --- Step 1: Classify Content using api.chat ---
+      toast({ title: "正在分析内容类型..." });
+
+      // Extract first 50 lines for classification
+      const lines = inputText.split('\n');
+      const textForClassification = lines.slice(0, 50).join('\n');
+
+      const classificationPrompt = getClassificationPrompt(textForClassification); // Use truncated text
+      // Use a fast model suitable for classification
+      const classificationModel = 'google/gemini-2.0-flash-001'; // Use updated ID without prefix
+      const classificationResponse = await api.chat(classificationPrompt, classificationModel);
+
+      // Extract and validate the classification result
+      const rawClassification = classificationResponse.message.trim();
+      if (Object.values(CONTENT_TYPES).includes(rawClassification as any)) {
+          currentClassification = rawClassification as ContentType;
+      } else {
+          console.warn(`Received unexpected classification: "${rawClassification}". Falling back to '其他'.`);
+          const lowerCaseResult = rawClassification.toLowerCase();
+          if (lowerCaseResult.includes(CONTENT_TYPES.CHAT_LOG.toLowerCase())) {
+              currentClassification = CONTENT_TYPES.CHAT_LOG;
+          } else if (lowerCaseResult.includes(CONTENT_TYPES.FORMAL_LONG.toLowerCase())) {
+              currentClassification = CONTENT_TYPES.FORMAL_LONG;
+          } else if (lowerCaseResult.includes(CONTENT_TYPES.SCATTERED.toLowerCase())) {
+              currentClassification = CONTENT_TYPES.SCATTERED;
+          } else {
+              currentClassification = CONTENT_TYPES.OTHER;
+          }
       }
+
+      setClassifiedType(currentClassification);
+      setIsClassifying(false); // End classifying
+
+      toast({ title: `内容类型: ${currentClassification}. 开始使用 ${htmlGenerationModel} 生成网页...` });
+
+      // --- Step 2: Generate HTML (use FULL inputText and hardcoded model) ---
+      console.log(`Content classified as: ${currentClassification}. Generating HTML with ${htmlGenerationModel}`);
+
+      // Use the hardcoded model for HTML generation and the FULL input text
+      const htmlGenerationResponse = await api.Document2HTML(inputText, htmlGenerationModel); // Pass full inputText and hardcoded model
+      console.log("HTML Generation API Response:", htmlGenerationResponse);
+      setGeneratedHtml(htmlGenerationResponse.result);
+
     } catch (err) {
-      setError(err instanceof Error ? err.message : '请求失败');
+      console.error("Error during process:", err);
+      const errorMessage = err instanceof Error ? err.message : "An unknown error occurred.";
+      let detailedError = errorMessage;
+      if ((err as any)?.response?.data?.error?.message) {
+          detailedError = (err as any).response.data.error.message;
+      } else if ((err as any)?.detail) {
+          detailedError = (err as any).detail;
+      }
+
+      setError(detailedError);
+      toast({
+        title: isClassifying ? "分析类型失败" : "生成网页失败",
+        description: detailedError,
+        variant: "destructive",
+      });
     } finally {
       setIsLoading(false);
+      setIsClassifying(false);
     }
   };
 
-  // 按下Enter键处理
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      handleSendRequest();
+  const handleExportImage = useCallback(async () => {
+    if (!htmlDisplayRef.current || isExporting) {
+       if (!htmlDisplayRef.current) {
+          toast({
+             title: "导出失败",
+             description: "无法找到要导出的内容元素。",
+             variant: "destructive",
+          });
+       }
+      return;
     }
-  };
-  
-  // 生成PDF并下载
-  const handleDownloadPdf = async () => {
-    if (!htmlContent || !contentRef.current) return;
-    
+
+    setIsExporting(true);
+    const targetElement = htmlDisplayRef.current;
+
+    toast({
+      title: "准备导出图片",
+      description: "请稍候，正在渲染内容...",
+    });
+
     try {
-      setIsGeneratingPdf(true);
-      
-      // 动态导入html2pdf.js
-      const html2pdf = (await import('html2pdf.js')).default;
-      
-      // 给样式和资源加载一些时间
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      // 增强的配置选项
-      const opt = {
-        margin: 10,
-        filename: 'ai-generated-content.pdf',
-        image: { type: 'jpeg', quality: 0.98 },
-        html2canvas: { 
-          scale: 2, 
-          useCORS: true,
-          allowTaint: true,
-          logging: true,
-          letterRendering: true,
-          foreignObjectRendering: true
-        },
-        jsPDF: { 
-          unit: 'mm', 
-          format: 'a4', 
-          orientation: 'portrait',
-          compress: true,
-          hotfixes: ["px_scaling"]
-        }
-      };
-      
-      // 生成PDF
-      await html2pdf().from(contentRef.current).set(opt).save();
-      
+      await new Promise(resolve => requestAnimationFrame(() => setTimeout(resolve, 500)));
+
+      console.log("Attempting to capture element:", targetElement);
+
+      const dataUrl = await toPng(targetElement, {
+         pixelRatio: 2,
+         backgroundColor: '#ffffff',
+      });
+
+      console.log("Image capture successful, creating download link.");
+
+      const link = document.createElement('a');
+      link.download = `generated-content-${Date.now()}.png`;
+      link.href = dataUrl;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+
+      toast({
+        title: "导出成功",
+        description: "图片已开始下载",
+        duration: 3000,
+      });
     } catch (error) {
-      console.error('PDF生成失败:', error);
-      setError('PDF生成失败，请稍后再试');
+      console.error('图片导出失败:', error);
+      toast({
+        title: "导出失败",
+        description: error instanceof Error ? error.message : "未知错误，请检查控制台获取详情。",
+        variant: "destructive",
+      });
     } finally {
-      setIsGeneratingPdf(false);
+       setIsExporting(false);
     }
-  };
+  }, [isExporting]);
+
 
   return (
-    <div style={styles.demoPage}>
-      <header style={styles.header}>
-        <h1 style={styles.headerTitle}>AI生成HTML内容演示</h1>
-        <p style={styles.headerText}>输入主题，AI将生成包含内联样式的HTML内容</p>
-      </header>
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      className="flex flex-col h-screen p-4 gap-4 bg-background"
+    >
+      <h1 className="text-2xl font-semibold">AI Webpage Generator Test</h1>
 
-      <select 
-        style={styles.modelSelector} 
-        value={selectedModel} 
-        onChange={handleModelChange}
-      >
-        <option value="deepseek/deepseek-chat-v3-0324:free">Deepseek 70B</option>
-        <option value="google/gemini-2.0-flash-001">Gemini</option>
-      </select>
-      
-      <div style={styles.inputContainer}>
-        <input
-          type="text"
-          ref={promptInputRef}
-          style={styles.input}
-          value={userPrompt}
-          onChange={handleInputChange}
-          onKeyDown={handleKeyDown}
-          placeholder="输入内容主题（例如：数据可视化最佳实践）"
-        />
-        <button 
-          style={{
-            ...styles.button,
-            backgroundColor: isLoading ? '#999' : '#3498db',
-            cursor: isLoading ? 'not-allowed' : 'pointer'
-          }} 
-          onClick={handleSendRequest}
+      <div className="flex flex-col gap-2">
+        <Textarea
+          placeholder="输入你的内容，AI会尝试将其转换为网页..."
+          value={inputText}
+          onChange={(e) => setInputText(e.target.value)}
+          rows={6}
+          className="resize-none"
           disabled={isLoading}
-        >
-          生成
-        </button>
+        />
+        <div className="flex items-center justify-between gap-2 mt-2"> {/* Use justify-between */}
+           {/* Button is now the only item on the left */}
+           <Button onClick={handleGenerateHtml} disabled={isLoading || !inputText.trim()}>
+             {isLoading ? (
+               <>
+                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                 {isClassifying ? "正在分析..." : "正在生成..."}
+               </>
+             ) : (
+               "分析并生成网页"
+             )}
+           </Button>
+
+            {/* Display Classification Result on the right */}
+            {classifiedType && !isLoading && (
+               <span className="text-sm text-muted-foreground">类型: {classifiedType}</span>
+            )}
+        </div>
       </div>
 
-      {error && (
-        <div style={styles.errorMessage}>
-          <strong>错误：</strong> {error}
-        </div>
-      )}
-      
-      {isLoading ? (
-        <div style={styles.loadingState}>
-          <div style={styles.spinner}></div>
-          <p>AI正在生成内容，请稍候...</p>
-        </div>
-      ) : htmlContent ? (
-        <div style={styles.pdfContainer}>
-          {/* PDF下载按钮 */}
-          <button 
-            style={{
-              ...styles.downloadButton,
-              backgroundColor: isGeneratingPdf ? '#95a5a6' : '#27ae60',
-              cursor: isGeneratingPdf ? 'not-allowed' : 'pointer',
-            }}
-            onClick={handleDownloadPdf}
-            disabled={isGeneratingPdf}
-          >
-            {isGeneratingPdf ? '正在生成PDF...' : '下载为PDF文档'}
-            {!isGeneratingPdf && (
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z" fill="currentColor"/>
-              </svg>
-            )}
-          </button>
-          
-          {/* 内容包装器，用于下载PDF */}
-          <div ref={contentRef} style={styles.contentWrapper}>
-            <AIInlineHtmlRenderer htmlContent={htmlContent} />
+      <div className="flex-1 border rounded-md overflow-auto p-4 bg-muted/20 relative min-h-[300px]">
+        {isLoading && !generatedHtml && (
+          <div className="absolute inset-0 flex items-center justify-center bg-background/50 backdrop-blur-sm z-10">
+             <Loader2 className="h-8 w-8 animate-spin text-primary" />
+             <span className="ml-2 text-primary">{isClassifying ? "正在分析内容类型..." : "正在生成HTML..."}</span> {/* Dynamic loading text in overlay */}
           </div>
-        </div>
-      ) : null}
-      
-      <footer style={styles.footer}>
-        <h3 style={styles.footerTitle}>技术要点</h3>
-        <ul style={styles.footerList}>
-          <li style={styles.footerListItem}>使用Document2HTML API将文本转换为HTML</li>
-          <li style={styles.footerListItem}>AI直接生成带有内联样式的HTML</li>
-          <li style={styles.footerListItem}>使用DOMPurify进行安全处理</li>
-          <li style={styles.footerListItem}>html2pdf.js将HTML内容转换为PDF</li>
-          <li style={styles.footerListItem}>简单实现，无需样式隔离机制</li>
-        </ul>
-      </footer>
-    </div>
+        )}
+        {error && (
+          <div className="flex flex-col items-center justify-center h-full text-destructive">
+            <AlertTriangle className="h-8 w-8 mx-auto mb-2" />
+            <p className="text-center font-semibold">处理出错</p> {/* Generic error title */}
+            <p className="text-center text-sm">{error}</p> {/* Display potentially detailed error */}
+          </div>
+        )}
+        {!isLoading && !error && !generatedHtml && (
+           <div className="flex items-center justify-center h-full text-muted-foreground">
+             <p>生成的网页内容将显示在这里</p>
+           </div>
+        )}
+        {generatedHtml && (
+          <div ref={htmlDisplayRef} key={generatedHtml} dangerouslySetInnerHTML={{ __html: generatedHtml }} />
+        )}
+        {generatedHtml && !isLoading && (
+             <Button
+               variant="outline"
+               size="sm"
+               onClick={handleExportImage}
+               className="absolute top-2 right-2 gap-1 z-20"
+               disabled={isExporting}
+              >
+               {isExporting ? (
+                 <>
+                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                   导出中...
+                 </>
+               ) : (
+                 <>
+                   <ImageIcon className="h-4 w-4" />
+                   导出图片
+                 </>
+               )}
+             </Button>
+        )}
+      </div>
+    </motion.div>
   );
-};
-
-export default AIInlineHtmlDemo;
+}
