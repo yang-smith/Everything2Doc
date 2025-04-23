@@ -200,7 +200,7 @@ export const api = {
         model = 'google/gemini-1.5-flash';
     }
       
-    const url = new URL(`${API_BASE}/api/chat`);
+    const url = new URL(`${API_BASE}/api/chat/`);
     
     const response = await fetch(url.toString(), {
       method: 'POST',
