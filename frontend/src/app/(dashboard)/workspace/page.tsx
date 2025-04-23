@@ -27,7 +27,7 @@ export default function WorkspacePage() {
     }
   }, [currentProjectId]); 
 
-  const handleStreamDocument = async (actionTitle: string, model: string) => {
+  const handleStreamDocument = async (actionTitle: string) => {
     setDocumentContent({ content: '', isLoading: true, error: undefined })
     setShowDocument(true)
     
@@ -37,7 +37,7 @@ export default function WorkspacePage() {
         eventSource = api.createDocStream(
           currentProjectId,
           actionTitle as any,
-          model
+          'google/gemini-2.5-flash-preview'
         )
 
 

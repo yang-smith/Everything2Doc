@@ -3,28 +3,11 @@
 import * as React from 'react'
 import { Card } from '@/components/ui/card'
 import { ScrollArea } from '@/components/ui/scroll-area'
-import { FileBarChart, ArrowRight, AlertCircle } from 'lucide-react'
+import { FileBarChart, ArrowRight } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useEffect, useState } from 'react'
 import { api } from '@/lib/api'
 import { useProjectStore } from '@/stores/project'
-import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select'
-
-// Add AI models array at top level
-const AI_MODELS = [
-  {
-    value: 'deepseek/deepseek-chat-v3-0324',
-    label: 'deepseek-v3-0324'
-  },
-  {
-    value: 'google/gemini-2.0-flash-001',
-    label: 'gemini-2.0（超快）'
-  },
-  {
-    value: 'perplexity/r1-1776',
-    label: 'Deepseek R1 (慢，但是质量高)'
-  }
-] as const
 
 // Add fixed recommendations
 const RECOMMENDATIONS = [
@@ -40,14 +23,12 @@ const RECOMMENDATIONS = [
   }
 ] as const
 
-type AIModel = typeof AI_MODELS[number]['value']
-
 export function RecommendedActions({ 
   projectId, 
   onActionClick 
 }: { 
   projectId: string
-  onActionClick: (action: string, model: string) => void
+  onActionClick: (action: string) => void
 }) {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -55,9 +36,6 @@ export function RecommendedActions({
   const setRecommendations = useProjectStore(state => state.setRecommendations)
   const allRecommendations = useProjectStore(state => state.recommendations)
   const recommendations = allRecommendations[projectId] || []
-
-  // Change default model to deepseek
-  const [selectedModel, setSelectedModel] = useState<AIModel>('deepseek/deepseek-chat-v3-0324')
 
   useEffect(() => {
     let mounted = true
@@ -124,7 +102,7 @@ export function RecommendedActions({
                   <motion.button
                     whileHover={{ scale: 1.02 }}
                     whileTap={{ scale: 0.98 }}
-                    onClick={() => onActionClick(recommendation.id, selectedModel)}
+                    onClick={() => onActionClick(recommendation.id)}
                     className="relative w-full text-left p-6"
                   >
                     <div className="flex items-start gap-4">
@@ -157,25 +135,6 @@ export function RecommendedActions({
           </motion.div>
         </AnimatePresence>
       </ScrollArea>
-
-      {/* Add model selector */}
-      <div className="mt-4 flex justify-end">
-        <Select
-          value={selectedModel}
-          onValueChange={(value: AIModel) => setSelectedModel(value)}
-        >
-          <SelectTrigger className="w-[200px]">
-            <SelectValue placeholder="选择AI模型" />
-          </SelectTrigger>
-          <SelectContent>
-            {AI_MODELS.map(({ value, label }) => (
-              <SelectItem key={value} value={value}>
-                {label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
     </motion.div>
   )
 } 
