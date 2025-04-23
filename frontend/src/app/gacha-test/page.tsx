@@ -768,7 +768,7 @@ export default function GachaTestPage() {
                          <div className="relative rounded-md overflow-hidden shadow-md border-2 border-[#D9C8B4]">
                              <Textarea
                                  ref={textareaRef}
-                                 placeholder="输入你的内容，AI精灵会尝试将其转换为网页..."
+                                 placeholder="输入你的内容，gacha将它变为更好玩的东西..."
                                  value={inputText}
                                  onChange={handleInputChange}
                                  rows={6}
