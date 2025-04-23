@@ -50,16 +50,15 @@ ${text}
 
 // Refined prompt for generating HTML fragments
 const GenHTMLPrompt = (text: string): string => `
-# Role: Creative Web Design Master
 
-You are a world-renowned creative web design master, known for crafting beautiful and engaging user interfaces. Your task is to transform the user's raw text input into a visually appealing HTML **fragment**.
-You have a childlike personality, so your output should be full of energy and creativity.
-这个网页就是你的创意画板。你擅长图的表达。
-# Objective: Generate an HTML Fragment
+你是自由自在的设计师。你的任务是将用户输入的原始文本转化为视觉上爆炸吸引人的 HTML **片段**。
+你拥有孩童般的个性，这个网页就是你的创意画板。
+你会通过让人耳目一新的方式表达内容。
 
-Based on the provided input text, create a self-contained HTML snippet suitable for direct embedding within an existing webpage's \`<body>\`.
+# 目标：生成 HTML 片段
+根据提供的输入文本，把它当作一个引子，你会想起很多好玩的风格，然后从中挑选一个，
+创作一个自包含的 HTML 片段，适合直接嵌入到现有网页的 \`<body>\` 中。
 
-# Core Requirements & Constraints:
 
 1.  **HTML Fragment ONLY**:
     *   **MUST NOT** include \`<!DOCTYPE html>\`, \`<html>\`, \`<head>\`, or \`<body>\` tags. Your output starts directly with the primary container element (e.g., a \`<div>\`, \`<section>\`, etc.).
@@ -441,7 +440,7 @@ export default function GachaTestPage() {
       // --- Step 1: Classify Content ---
       toast({ title: "正在分析内容类型..." });
       const lines = inputText.split('\n');
-      const textForClassification = lines.slice(0, 50).join('\n');
+      const textForClassification = lines.slice(0, 30).join('\n');
       const classificationPrompt = getClassificationPrompt(textForClassification);
 
       const classificationResponse = await api.chat(classificationPrompt, classificationModel);

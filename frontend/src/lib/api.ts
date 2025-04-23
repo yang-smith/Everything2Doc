@@ -202,19 +202,19 @@ export const api = {
       
     const url = new URL(`${API_BASE}/api/chat`);
     
-    // 构建查询参数
-    const params = new URLSearchParams();
-    params.append('message', message);
-    params.append('model', model);
-    
-    const response = await fetch(`${url}?${params.toString()}`, {
-      method: 'GET',
+    const response = await fetch(url.toString(), {
+      method: 'POST',
       headers: {
+        'Content-Type': 'application/json',
         'Accept': 'application/json',
       },
+      body: JSON.stringify({ message, model })
     });
 
     if (!response.ok) {
+      if (response.status === 307 || response.status === 308) {
+          console.error("Received unexpected redirect on POST:", response);
+      }
       const errorData = await response.json();
       throw new Error(errorData.detail || '聊天请求失败');
     }
