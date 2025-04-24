@@ -324,7 +324,6 @@ export default function GachaTestPage() {
         console.log(`Classification is OTHER. Using GenHTMLPrompt with api.chat and model ${htmlGenerationModel}.`);
         const gen_img_prompt = PROMPT_GEN_IMAGE_PROMPT.replace('{text}', inputText);
         const gen_img_response = await api.chat(gen_img_prompt, htmlGenerationModel);
-        console.log(`gen_img_response: ${gen_img_response.message}`);
         const img_url = await generateImage(gen_img_response.message.trim());
         if (!img_url) throw new Error("模型返回了空的图片URL。");
         const html_content = `<img src="${img_url}" alt="Generated Image" />`;
@@ -615,7 +614,7 @@ export default function GachaTestPage() {
                          <div className="relative rounded-md overflow-hidden shadow-md border-2 border-[#D9C8B4]">
                              <Textarea
                                  ref={textareaRef}
-                                 placeholder="输入你的内容，gacha将它变为更好玩的东西..."
+                                 placeholder="快让我吃掉你的内容..."
                                  value={inputText}
                                  onChange={handleInputChange}
                                  rows={6}
