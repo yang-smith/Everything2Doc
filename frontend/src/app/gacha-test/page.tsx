@@ -36,7 +36,7 @@ type ContentType = typeof CONTENT_TYPES[keyof typeof CONTENT_TYPES];
 
 const getClassificationPrompt = (text: string): string => `
 请判断以下输入内容的类型，从以下几种类型中选择最符合的一个：
-1.  "${CONTENT_TYPES.FORMAL_LONG}": 内容结构完整、主题明确、篇幅较长，像文章、报告、文档等。
+1.  "${CONTENT_TYPES.FORMAL_LONG}": 内容结构完整、主题明确、篇幅较长（至少大于50字），像文章、报告、文档等。
 2.  "${CONTENT_TYPES.CHAT_LOG}": 包含明显的对话标记（如说话人姓名、时间戳、冒号分隔等），内容是多人或双人对话形式。
 3.  "${CONTENT_TYPES.SCATTERED}": 包含多个不连续的、主题可能分散的短文本片段、列表项、想法点等，整体缺乏连贯长文结构，内容量大于800字。
 4.  "${CONTENT_TYPES.OTHER}": 不属于以上任何一种，或者难以判断。
@@ -278,7 +278,7 @@ export default function GachaTestPage() {
 
     let currentClassification: ContentType | null = null;
     const htmlGenerationModel = 'google/gemini-2.5-flash-preview';
-    const classificationModel = 'google/gemini-2.0-flash-001';
+    const classificationModel = 'google/gemini-2.5-flash-preview';
     const chatSummaryModel = 'google/gemini-2.5-flash-preview'; // Or specify a different model if needed
 
     try {
