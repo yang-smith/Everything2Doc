@@ -1,424 +1,380 @@
-'use client'
+"use client"
 
-import Link from "next/link"
-import Image from "next/image"
-import { ArrowUpRight } from "lucide-react"
-import { Navbar } from "@/components/shared/navbar"
+import type React from "react"
 
-export default function LandingPage() {
+import { useState, useRef, useEffect } from "react"
+import { Textarea } from "@/components/ui/textarea"
+import { Button } from "@/components/ui/button"
+import { Upload, ImageDown, AlertCircle } from "lucide-react"
+import { streamingConvertChatToReport } from "@/components/summary/ai_service"
+import DocumentParser from "@/components/summary/parser"
+import { toPng } from "html-to-image"
+import CoinDisplay from "@/components/summary/coin-display"
+import PaymentDialog from "@/components/summary/payment-dialog"
+import { checkAndRefillCoins, calculateRequiredCoins, consumeCoins, getCoinBalance } from "@/components/summary/coin-service"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+
+// 硬币套餐配置
+const COIN_PACKAGES = [
+  { amount: 3, price: 3 },
+  { amount: 10, price: 8 },
+  { amount: 25, price: 20 },
+  { amount: 60, price: 50 },
+  { amount: 100, price: 80 },
+  { amount: 300, price: 199 },
+]
+
+export default function ChatToReport() {
+  const [chatContent, setChatContent] = useState("")
+  const [reportContent, setReportContent] = useState("")
+  const [isGenerating, setIsGenerating] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [coinBalance, setCoinBalance] = useState(0)
+  const [requiredCoins, setRequiredCoins] = useState(0)
+  const [showPaymentDialog, setShowPaymentDialog] = useState(false)
+  const [purchaseAmount, setPurchaseAmount] = useState(0)
+  const [purchasePrice, setPurchasePrice] = useState(0)
+  const [insufficientCoins, setInsufficientCoins] = useState(false)
+
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const chatInputRef = useRef<HTMLDivElement>(null)
+  const reportRef = useRef<HTMLDivElement>(null)
+
+  // Determine if we're in "report mode" (after generation)
+  const isReportMode = reportContent !== ""
+
+  // 更新硬币余额
+  const updateCoinBalance = () => {
+    const balance = getCoinBalance()
+    setCoinBalance(balance)
+  }
+
+  // 初始化并检查硬币余额
+  useEffect(() => {
+    checkAndRefillCoins() // 检查是否需要月度补充
+    updateCoinBalance()
+
+    // 设置定期检查，以防用户长时间保持页面打开
+    const intervalId = setInterval(
+      () => {
+        checkAndRefillCoins()
+        updateCoinBalance()
+      },
+      60 * 60 * 1000,
+    ) // 每小时检查一次
+
+    return () => clearInterval(intervalId)
+  }, [])
+
+  // 当输入内容变化时，计算所需硬币
+  useEffect(() => {
+    const coins = calculateRequiredCoins(chatContent)
+    setRequiredCoins(coins)
+
+    // 如果硬币不足，显示警告
+    setInsufficientCoins(coins > coinBalance)
+  }, [chatContent, coinBalance])
+
+  const handleGenerateReport = async () => {
+    if (!chatContent.trim()) return
+
+    // 检查硬币是否足够
+    const coinsNeeded = calculateRequiredCoins(chatContent)
+    if (coinsNeeded > coinBalance) {
+      setInsufficientCoins(true)
+      return
+    }
+
+    setIsGenerating(true)
+    setError(null)
+    setReportContent("")
+
+    try {
+      // 消费硬币
+      console.log(`消费前硬币: ${coinBalance}, 需要消费: ${coinsNeeded}`)
+      const success = consumeCoins(coinsNeeded)
+      if (!success) {
+        throw new Error("硬币不足，无法生成报告")
+      }
+
+      // 更新硬币余额显示
+      updateCoinBalance()
+      console.log(`消费后硬币: ${getCoinBalance()}`)
+
+      // 使用流式API，逐步更新UI
+      await streamingConvertChatToReport(chatContent, (chunk) => {
+        setReportContent((prev) => prev + chunk)
+      })
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "生成日报时发生错误")
+    } finally {
+      setIsGenerating(false)
+    }
+  }
+
+  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    if (!file) return
+
+    const reader = new FileReader()
+    reader.onload = (e) => {
+      const content = e.target?.result as string
+      setChatContent(content)
+    }
+    reader.readAsText(file)
+
+    // Reset the file input
+    if (fileInputRef.current) {
+      fileInputRef.current.value = ""
+    }
+  }
+
+  const triggerFileUpload = () => {
+    fileInputRef.current?.click()
+  }
+
+  const downloadReportAsImage = async () => {
+    if (!reportRef.current) return
+
+    try {
+      const dataUrl = await toPng(reportRef.current, {
+        quality: 0.95,
+        pixelRatio: 2,
+        cacheBust: true,
+      })
+
+      const link = document.createElement("a")
+      link.download = `聊天日报_${new Date().toLocaleDateString().replace(/\//g, "-")}.png`
+      link.href = dataUrl
+      link.click()
+    } catch (err) {
+      console.error("下载图片失败:", err)
+    }
+  }
+
+  const resetAll = () => {
+    setReportContent("")
+    setError(null)
+  }
+
+  // 处理购买硬币
+  const handlePurchase = (amount: number) => {
+    // 查找对应的价格
+    const packageInfo = COIN_PACKAGES.find((pkg) => pkg.amount === amount)
+    const price = packageInfo ? packageInfo.price : amount // 如果找不到套餐，则使用数量作为价格
+
+    setPurchaseAmount(amount)
+    setPurchasePrice(price)
+    setShowPaymentDialog(true)
+  }
+
+  // 支付完成后的回调
+  const handlePaymentComplete = () => {
+    setShowPaymentDialog(false)
+  }
+
+  // 硬币添加后的回调
+  const handleCoinsAdded = (amount: number) => {
+    console.log(`添加了 ${amount} 枚硬币`)
+    updateCoinBalance()
+  }
+
+  // 添加键盘快捷键支持
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // 检测 Cmd+Enter 或 Ctrl+Enter
+      if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
+        if (chatContent.trim() && !isGenerating && !insufficientCoins) {
+          handleGenerateReport()
+        }
+      }
+    }
+
+    window.addEventListener("keydown", handleKeyDown)
+    return () => window.removeEventListener("keydown", handleKeyDown)
+  }, [chatContent, isGenerating, insufficientCoins])
+
+  // 添加拖放文件支持
+  useEffect(() => {
+    const chatInputElement = chatInputRef.current
+    if (!chatInputElement) return
+
+    const handleDragOver = (e: DragEvent) => {
+      e.preventDefault()
+      e.stopPropagation()
+      chatInputElement.classList.add("border-black")
+    }
+
+    const handleDragLeave = (e: DragEvent) => {
+      e.preventDefault()
+      e.stopPropagation()
+      chatInputElement.classList.remove("border-black")
+    }
+
+    const handleDrop = (e: DragEvent) => {
+      e.preventDefault()
+      e.stopPropagation()
+      chatInputElement.classList.remove("border-black")
+
+      if (e.dataTransfer?.files && e.dataTransfer.files.length > 0) {
+        const file = e.dataTransfer.files[0]
+        if (file.type === "text/plain") {
+          const reader = new FileReader()
+          reader.onload = (e) => {
+            const content = e.target?.result as string
+            setChatContent(content)
+          }
+          reader.readAsText(file)
+        }
+      }
+    }
+
+    chatInputElement.addEventListener("dragover", handleDragOver)
+    chatInputElement.addEventListener("dragleave", handleDragLeave)
+    chatInputElement.addEventListener("drop", handleDrop)
+
+    return () => {
+      chatInputElement.removeEventListener("dragover", handleDragOver)
+      chatInputElement.removeEventListener("dragleave", handleDragLeave)
+      chatInputElement.removeEventListener("drop", handleDrop)
+    }
+  }, [])
+
   return (
-    <div className="relative w-full overflow-hidden">
-      {/* Main section with gradient background */}
-      <section className="relative w-full h-[800px] bg-gradient-to-t from-white to-[#ECE5FF]">
-        {/* Blur effects */}
-        <div className="absolute w-[949.69px] h-[547.3px] right-[107.53px] top-[-428px] bg-[#371AE7] blur-[100px] rounded-[728px]"></div>
-        <div className="absolute w-[791px] h-[514px] left-[227px] top-[-313px] bg-[#371AE7] blur-[100px] rounded-[326.25px]"></div>
-        <div className="absolute w-[536px] h-[523px] right-[-139.19px] top-[-275.16px] bg-[#F8FF37] blur-[150px] rounded-[529.5px]"></div>
-        <div className="absolute w-[536px] h-[523px] right-[1424.39px] top-[-300px] bg-[#F5FF37] blur-[150px] rounded-[529.5px]"></div>
-        <div className="absolute w-[372px] h-[373px] right-[1268px] top-[-187px] bg-[#22B5FF] blur-[150px] rounded-[345px]"></div>
-
-        {/* Header */}
-        <Navbar />
-
-        {/* Main content */}
-        <div className="absolute w-[1072px] h-[422.48px] left-1/2 top-[100px] -translate-x-1/2 flex flex-col justify-center items-center gap-[48px]">
-          <div className="w-[1072px] h-[324.48px] relative">
-            <div className="absolute w-[1216px] h-[242.09px] left-1/2 -translate-x-1/2 top-0 flex flex-col items-center px-[248px] pb-[12.59px] gap-[15.5px]">
-              {/* Beta tag */}
-              <div className="flex items-center px-[8px] py-[6px] w-[82px] h-[42px] bg-white/50 rounded-[50px]">
-                <div className="flex justify-center items-center px-[12px] py-[4px] w-[66px] h-[30px] bg-[#F0F0F2] rounded-[16px]">
-                  <span className="w-[42px] h-[22px] font-[PingFang SC] font-semibold text-[14px] leading-[22px] flex items-center text-center text-[#4D35FF]">
-                    测试版
-                  </span>
-                </div>
-              </div>
-
-              {/* Main heading */}
-              <h1 className="w-[720px] h-[172px] font-[PingFang SC] font-medium text-[65px] leading-[120%] flex items-center text-center text-[#0D1216]">
-                告别群聊焦虑
-                <br />
-                开启社群知识管理时代
-              </h1>
-            </div>
-
-            {/* Subheading */}
-            <p className="absolute w-[735.78px] h-[64px] left-1/2 -translate-x-1/2 top-[250.49px] font-[PingFang SC] font-normal text-[20px] leading-[32px] flex items-center text-center text-[#494959]">
-              基于AI技术，自动分析你的聊天记录，精准提取关键信息并生成结构化视觉化知识文档，让每一条碎片信息都成为你的知识资产。
-            </p>
+    <div className="min-h-screen bg-white">
+      <div className="max-w-5xl mx-auto px-4 py-6 sm:py-12">
+        <div className="flex justify-between items-center mb-6">
+          <div>
+            <h1 className="text-2xl font-medium text-black mb-1 text-center sm:text-left">聊天日报</h1>
+            <p className="text-gray-500 text-sm">将杂乱的聊天记录转化为结构化的社群日报</p>
           </div>
-
-          {/* CTA buttons */}
-          <div className="flex items-center gap-[20px] w-[284px] h-[50px]">
-            <Link href="#features">
-              <button className="flex justify-center items-center py-[10px] px-[28px] gap-[10px] w-[123px] h-[50px] border border-[#4D35FF] rounded-[8px]">
-              <span className="w-[100px] h-[24px] font-[PingFang SC] font-medium text-[16px] leading-[24px] flex items-center text-[#4D35FF]">
-                了解更多
-              </span>
-            </button>
-            </Link>
-            <Link href="/workspace">
-            <button className="flex justify-center items-center py-[10px] px-[28px] gap-[10px] w-[144px] h-[50px] bg-[#4D35FF] rounded-[8px]">
-              <span className="w-[100px] h-[24px] font-[PingFang SC] font-medium text-[16px] leading-[24px] flex items-center text-white">
-                免费试用
-              </span>
-              <ArrowUpRight className="w-[20px] h-[20px] text-white" />
-            </button>
-            </Link>
-          </div>
+          <CoinDisplay coinBalance={coinBalance} onPurchase={handlePurchase} />
         </div>
-      </section>
 
-      {/* Feature Section 1 */}
-      <section className="w-full py-20 bg-white">
-        <div className="container mx-auto px-4">
-          <div className="grid md:grid-cols-2 gap-12 items-center">
-            <div>
-              <h2 className="text-2xl md:text-3xl font-bold mb-6">
-                超长聊天记录秒级分析，
-                <br />
-                解决GPT容不下的难题
-              </h2>
-              <p className="text-lg mb-6 text-[#494959]">
-                每天几百条的群聊消息，GPT无法一次性处理？我们的AI能够快速分析超长聊天记录，提取关键信息，生成结构化知识文档。
-              </p>
-              <button className="flex justify-center items-center py-[10px] px-[28px] gap-[10px] w-[120px] h-[50px] border border-[#4D35FF] rounded-[8px]">
-                <span className="font-medium text-[16px] leading-[24px] text-[#4D35FF]">了解更多</span>
-              </button>
+        {insufficientCoins && (
+          <Alert variant="destructive" className="mb-4">
+            <AlertCircle className="h-4 w-4" />
+            <AlertTitle>硬币不足</AlertTitle>
+            <AlertDescription>
+              您当前的硬币余额不足以处理这么多文字。需要 {requiredCoins} 枚硬币，您有 {coinBalance} 枚。
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => handlePurchase(Math.max(3, requiredCoins - coinBalance))}
+                className="ml-2 h-7 text-xs"
+              >
+                购买硬币
+              </Button>
+            </AlertDescription>
+          </Alert>
+        )}
+
+        <div className="grid grid-cols-1 md:grid-cols-12 gap-4 sm:gap-6 transition-all duration-300">
+          {/* Input Section - dynamically sized */}
+          <div
+            ref={chatInputRef}
+            className={`space-y-3 sm:space-y-4 ${isReportMode ? "md:col-span-5" : "md:col-span-7"}`}
+          >
+            <div className="flex items-center justify-between">
+              <label className="block text-sm font-medium text-gray-700">聊天记录</label>
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-gray-500">消耗 {requiredCoins} 枚硬币</span>
+                <input type="file" accept=".txt" className="hidden" ref={fileInputRef} onChange={handleFileUpload} />
+                <button
+                  onClick={triggerFileUpload}
+                  className="flex items-center text-xs text-gray-500 hover:text-gray-700"
+                >
+                  <Upload className="h-3 w-3 mr-1" />
+                  上传文本文件
+                </button>
+              </div>
             </div>
-            <div className="bg-gray-100 p-6 rounded-lg">
-              <Image
-                src="/placeholder.svg?height=400&width=500"
-                alt="Analytics Dashboard"
-                width={500}
-                height={400}
-                className="rounded-lg shadow-lg"
+            <div className="relative">
+              <Textarea
+                placeholder="粘贴你的聊天记录，或拖放文本文件到这里..."
+                className="min-h-[300px] sm:min-h-[400px] resize-none border-gray-200 rounded-md transition-all duration-200"
+                value={chatContent}
+                onChange={(e) => setChatContent(e.target.value)}
               />
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Feature Section 2 */}
-      <section className="w-full py-20 bg-gray-50">
-        <div className="container mx-auto px-4">
-          <div className="grid md:grid-cols-2 gap-12 items-center">
-            <div className="order-2 md:order-1 bg-gray-100 p-6 rounded-lg">
-              <Image
-                src="/placeholder.svg?height=400&width=500"
-                alt="Social Group Analysis"
-                width={500}
-                height={400}
-                className="rounded-lg shadow-lg"
-              />
-            </div>
-            <div className="order-1 md:order-2">
-              <h2 className="text-2xl md:text-3xl font-bold mb-6">
-                专注于社群群聊分析，
-                <br />
-                精准可视化信息易寻
-              </h2>
-              <p className="text-lg mb-6 text-[#494959]">
-                针对社群群聊场景优化的AI分析引擎，能够理解群聊上下文，识别关键讨论主题，并将信息可视化呈现，让重要信息一目了然。
-              </p>
-              <button className="flex justify-center items-center py-[10px] px-[28px] gap-[10px] w-[120px] h-[50px] border border-[#4D35FF] rounded-[8px]">
-                <span className="font-medium text-[16px] leading-[24px] text-[#4D35FF]">查看案例</span>
-              </button>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Feature Section 3 */}
-      <section className="w-full py-20 bg-white">
-        <div className="container mx-auto px-4">
-          <div className="grid md:grid-cols-2 gap-12 items-center">
-            <div>
-              <h2 className="text-2xl md:text-3xl font-bold mb-6">
-                ���约设计，完美适配，
-                <br />
-                轻松分享社群报告
-              </h2>
-              <p className="text-lg mb-6 text-[#494959]">
-                生成的知识文档设计简约美观，适配多种设备，一键分享给团队成员，让群聊中的知识资产得到最大化利用。
-              </p>
-              <button className="flex justify-center items-center py-[10px] px-[28px] gap-[10px] w-[120px] h-[50px] border border-[#4D35FF] rounded-[8px]">
-                <span className="font-medium text-[16px] leading-[24px] text-[#4D35FF]">查看演示</span>
-              </button>
-            </div>
-            <div className="bg-gray-100 p-6 rounded-lg">
-              <Image
-                src="/placeholder.svg?height=400&width=500"
-                alt="Report Generation"
-                width={500}
-                height={400}
-                className="rounded-lg shadow-lg"
-              />
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Simple Steps Section */}
-      <section className="py-20 bg-gray-50">
-        <div className="container mx-auto px-4">
-          <h2 className="text-2xl md:text-3xl font-bold mb-12 text-center">只需三个步骤即可轻松搞定</h2>
-          <div className="grid md:grid-cols-3 gap-8">
-            <div className="bg-white p-6 rounded-lg shadow-sm text-center">
-              <div className="w-12 h-12 bg-[#4D35FF]/10 rounded-full flex items-center justify-center mx-auto mb-4">
-                <span className="text-[#4D35FF] font-bold text-xl">1</span>
-              </div>
-              <h3 className="text-xl font-bold mb-3">导入聊天记录</h3>
-              <p className="text-gray-600">支持微信、钉钉等主流社交工具的聊天记录导入</p>
-            </div>
-            <div className="bg-white p-6 rounded-lg shadow-sm text-center">
-              <div className="w-12 h-12 bg-[#4D35FF]/10 rounded-full flex items-center justify-center mx-auto mb-4">
-                <span className="text-[#4D35FF] font-bold text-xl">2</span>
-              </div>
-              <h3 className="text-xl font-bold mb-3">选择分析上传聊天记录</h3>
-              <p className="text-gray-600">AI自动分析聊天内容，提取关键信息</p>
-            </div>
-            <div className="bg-white p-6 rounded-lg shadow-sm text-center">
-              <div className="w-12 h-12 bg-[#4D35FF]/10 rounded-full flex items-center justify-center mx-auto mb-4">
-                <span className="text-[#4D35FF] font-bold text-xl">3</span>
-              </div>
-              <h3 className="text-xl font-bold mb-3">全流程可视化呈现一键导出</h3>
-              <p className="text-gray-600">生成结构化知识文档，一键分享给团队成员</p>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Features Grid */}
-      <section className="py-20 bg-white">
-        <div className="container mx-auto px-4">
-          <h2 className="text-2xl md:text-3xl font-bold mb-4 text-center">强大的智能功能，</h2>
-          <p className="text-lg text-center mb-12 max-w-2xl mx-auto">满足您社群管理和知识流通的需求</p>
-
-          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8">
-            <div className="p-6 rounded-lg border border-gray-100 hover:shadow-md transition-shadow">
-              <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center mb-4">
-                <svg
-                  className="h-6 w-6 text-blue-600"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  xmlns="http://www.w3.org/2000/svg"
-                >
-                  <path
-                    d="M12 8V16M8 12H16"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                </svg>
-              </div>
-              <h3 className="text-xl font-bold mb-2">智能分析</h3>
-              <p className="text-gray-600">自动分析聊天记录，提取关键信息，生成结构化知识文档</p>
-            </div>
-
-            <div className="p-6 rounded-lg border border-gray-100 hover:shadow-md transition-shadow">
-              <div className="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center mb-4">
-                <svg
-                  className="h-6 w-6 text-purple-600"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  xmlns="http://www.w3.org/2000/svg"
-                >
-                  <path
-                    d="M17 20H7C5.89543 20 5 19.1046 5 18V9L12 4L19 9V18C19 19.1046 18.1046 20 17 20Z"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                </svg>
-              </div>
-              <h3 className="text-xl font-bold mb-2">知识库管理</h3>
-              <p className="text-gray-600">将群聊中的碎片信息整合为结构化知识库，方便查询和使用</p>
-            </div>
-
-            <div className="p-6 rounded-lg border border-gray-100 hover:shadow-md transition-shadow">
-              <div className="w-12 h-12 bg-indigo-100 rounded-full flex items-center justify-center mb-4">
-                <svg
-                  className="h-6 w-6 text-indigo-600"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  xmlns="http://www.w3.org/2000/svg"
-                >
-                  <path
-                    d="M8 7V3M16 7V3M7 11H17M5 21H19C20.1046 21 21 20.1046 21 19V7C21 5.89543 20.1046 5 19 5H5C3.89543 5 3 5.89543 3 7V19C3 20.1046 3.89543 21 5 21Z"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                </svg>
-              </div>
-              <h3 className="text-xl font-bold mb-2">群聊日历</h3>
-              <p className="text-gray-600">自动识别群聊中的日程安排，生成日历提醒，不错过重要事项</p>
-            </div>
-
-            <div className="p-6 rounded-lg border border-gray-100 hover:shadow-md transition-shadow">
-              <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mb-4">
-                <svg
-                  className="h-6 w-6 text-green-600"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  xmlns="http://www.w3.org/2000/svg"
-                >
-                  <path
-                    d="M9 12L11 14L15 10M21 12C21 16.9706 16.9706 21 12 21C7.02944 21 3 16.9706 3 12C3 7.02944 7.02944 3 12 3C16.9706 3 21 7.02944 21 12Z"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                </svg>
-              </div>
-              <h3 className="text-xl font-bold mb-2">精准任务</h3>
-              <p className="text-gray-600">自动识别群聊中的任务分配，跟踪任务进度，提高团队协作效率</p>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* FAQ Section */}
-      <section className="flex flex-col items-center py-20 px-4 md:px-10 lg:px-20 bg-white">
-        <div className="flex flex-col justify-center items-center gap-4 max-w-[1180px]">
-          {/* FAQ Badge */}
-          <div className="flex justify-center items-center py-2 px-4 bg-[#F1F6FF] rounded-[16px]">
-            <span className="font-[PingFang SC] font-semibold text-[12px] leading-[18px] bg-gradient-to-r from-[#A15EE8] to-[#6D8DFF] bg-clip-text text-transparent">
-              常见问题解答
-            </span>
-          </div>
-          
-          {/* Heading */}
-          <h2 className="font-[PingFang SC] font-medium text-[40px] md:text-[52px] leading-[130%] text-center text-[#0D1216] mb-4">
-            我们为您提供保障
-          </h2>
-          
-          {/* FAQ Items */}
-          <div className="flex flex-col gap-4 w-full min-w-[600px] max-w-[780px]">
-            {/* FAQ Item 1 */}
-            <Link href="/docs/win">
-              <div className="w-full rounded-[10px] overflow-hidden cursor-pointer hover:shadow-md transition-all">
-                <div className="flex justify-between items-center p-5 bg-[#F1F6FF] rounded-[10px]">
-                  <h3 className="font-[PingFang SC] font-normal text-[20px] leading-[28px] text-[#0D1216]">
-                    Windows系统如何导出微信群聊信息？
-                  </h3>
-                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="transform rotate-90">
-                    <path d="M9 18L15 12L9 6" stroke="#9F9FB1" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                  </svg>
+              {!chatContent && (
+                <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                  <div className="text-gray-400 text-sm text-center px-4">
+                    <p>拖放 .txt 文件到这里</p>
+                    <p className="text-xs mt-1">或粘贴聊天记录</p>
+                  </div>
                 </div>
-              </div>
-            </Link>
-            
-            {/* FAQ Item 2 */}
-            <Link href="/docs/mac">
-              <div className="w-full rounded-[10px] overflow-hidden cursor-pointer hover:shadow-md transition-all">
-                <div className="flex justify-between items-center p-5 bg-[#F1F6FF] rounded-[10px]">
-                  <h3 className="font-[PingFang SC] font-normal text-[20px] leading-[28px] text-[#0D1216]">
-                    Mac系统如何导出微信群聊信息？
-                  </h3>
-                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="transform rotate-90">
-                    <path d="M9 18L15 12L9 6" stroke="#9F9FB1" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                  </svg>
+              )}
+            </div>
+            <div className="text-xs text-gray-400 text-right">提示: 每月自动获得 1 枚免费硬币</div>
+          </div>
+
+          {/* Output Section - dynamically sized */}
+          <div className={`space-y-3 sm:space-y-4 ${isReportMode ? "md:col-span-7" : "md:col-span-5"}`}>
+            <div className="flex items-center justify-between">
+              <label className="block text-sm font-medium text-gray-700">日报摘要</label>
+            </div>
+
+            <div className="min-h-[300px] sm:min-h-[400px] overflow-auto">
+              {reportContent ? (
+                <div ref={reportRef}>
+                  <DocumentParser inputText={reportContent} />
                 </div>
-              </div>
-            </Link>
+              ) : isGenerating ? (
+                <div className="bg-gray-50 rounded-md p-4 relative h-[300px] sm:h-[400px] flex items-center justify-center">
+                  <div className="h-5 w-5 bg-black rounded-full animate-pulse"></div>
+                </div>
+              ) : error ? (
+                <div className="bg-gray-50 rounded-md p-4 relative h-[300px] sm:h-[400px]">
+                  <div className="text-red-500 text-sm p-4">错误: {error}</div>
+                </div>
+              ) : (
+                <div className="bg-gray-50 rounded-md p-4 relative h-[300px] sm:h-[400px] flex items-center justify-center">
+                  <div className="text-gray-400 text-sm">生成的日报将显示在这里</div>
+                </div>
+              )}
+            </div>
           </div>
         </div>
-      </section>
 
-      {/* CTA Section */}
-      <section className="py-16 bg-[#4D35FF] text-white">
-        <div className="container mx-auto px-4 text-center">
-          <h2 className="text-2xl md:text-3xl font-bold mb-6">开启智能社群知识管理新体验</h2>
-          <p className="text-lg mb-8 max-w-2xl mx-auto">立即体验AI驱动的社群知识管理工具</p>
-          <button className="flex justify-center items-center py-[10px] px-[28px] gap-[10px] w-[144px] h-[50px] bg-white rounded-[8px] mx-auto">
-            <span className="font-medium text-[16px] leading-[24px] text-[#4D35FF]">免费开始使用</span>
-          </button>
+        <div className="mt-4 sm:mt-6 flex justify-end">
+          {reportContent ? (
+            <div className="flex space-x-3">
+              <Button
+                onClick={handleGenerateReport}
+                disabled={!chatContent.trim() || isGenerating || insufficientCoins}
+                variant="outline"
+                className="text-gray-700 border-gray-300 text-sm"
+              >
+                重新生成
+              </Button>
+              <Button
+                onClick={downloadReportAsImage}
+                className="bg-blue-600 hover:bg-blue-700 text-white rounded-md px-4 py-2 text-sm flex items-center"
+              >
+                <ImageDown className="h-4 w-4 mr-1.5" />
+                下载图片
+              </Button>
+            </div>
+          ) : (
+            <Button
+              onClick={handleGenerateReport}
+              disabled={!chatContent.trim() || isGenerating || insufficientCoins}
+              className="bg-black hover:bg-black/90 text-white rounded-md px-4 py-2 text-sm"
+            >
+              {isGenerating ? "生成中..." : "生成日报"}
+            </Button>
+          )}
         </div>
-      </section>
+      </div>
 
-      {/* Trust Section */}
-      <section className="py-16 bg-white">
-        <div className="container mx-auto px-4 text-center">
-          <h2 className="text-2xl font-bold mb-8">我们为您提供保障</h2>
-          <div className="grid md:grid-cols-2 gap-8 max-w-3xl mx-auto">
-            <div className="p-6 rounded-lg border border-gray-100">
-              <h3 className="text-lg font-medium mb-2">NexusKnow是否会存储我的聊天记录？</h3>
-              <p className="text-gray-600">我们仅在分析期间临时存储您的聊天记录，分析完成后立即删除原始数据。</p>
-            </div>
-            <div className="p-6 rounded-lg border border-gray-100">
-              <h3 className="text-lg font-medium mb-2">我们如何保护您的数据安全？</h3>
-              <p className="text-gray-600">采用银行级加密技术，确保您的数据安全，不会泄露给任何第三方。</p>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Footer */}
-      <footer className="py-12 bg-gray-50 border-t border-gray-200">
-        <div className="container mx-auto px-4">
-          <div className="flex flex-col md:flex-row justify-between items-center">
-            <div className="mb-6 md:mb-0">
-              <div className="font-bold text-xl flex items-center">
-                <span className="text-[#4D35FF] mr-1">Nexus</span>
-                <span>Knowledge</span>
-              </div>
-              <p className="text-sm text-gray-500 mt-2">社群知识管理平台</p>
-            </div>
-            <div className="flex flex-col md:flex-row gap-8">
-              <div>
-                <h3 className="font-medium mb-2">产品</h3>
-                <ul className="space-y-2 text-sm text-gray-500">
-                  <li>
-                    <Link href="#">功能</Link>
-                  </li>
-                  <li>
-                    <Link href="#">价格</Link>
-                  </li>
-                  <li>
-                    <Link href="#">集成</Link>
-                  </li>
-                </ul>
-              </div>
-              <div>
-                <h3 className="font-medium mb-2">公司</h3>
-                <ul className="space-y-2 text-sm text-gray-500">
-                  <li>
-                    <Link href="#">关于我们</Link>
-                  </li>
-                  <li>
-                    <Link href="#">博客</Link>
-                  </li>
-                  <li>
-                    <Link href="#">联系我们</Link>
-                  </li>
-                </ul>
-              </div>
-              <div>
-                <h3 className="font-medium mb-2">资源</h3>
-                <ul className="space-y-2 text-sm text-gray-500">
-                  <li>
-                    <Link href="#">文档</Link>
-                  </li>
-                  <li>
-                    <Link href="#">支持</Link>
-                  </li>
-                  <li>
-                    <Link href="#">隐私政策</Link>
-                  </li>
-                </ul>
-              </div>
-            </div>
-          </div>
-          <div className="mt-12 pt-8 border-t border-gray-200 text-center text-sm text-gray-500">
-            <p>© {new Date().getFullYear()} Nexus Knowledge. 保留所有权利。</p>
-          </div>
-        </div>
-      </footer>
+      {/* 支付对话框 */}
+      <PaymentDialog
+        isOpen={showPaymentDialog}
+        onClose={handlePaymentComplete}
+        coinAmount={purchaseAmount}
+        price={purchasePrice}
+        onCoinsAdded={handleCoinsAdded}
+      />
     </div>
   )
 }

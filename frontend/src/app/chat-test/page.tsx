@@ -1,276 +1,380 @@
-"use client";
+"use client"
 
-import { useState, useRef, useCallback } from 'react';
-import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
-import { Loader2, Image as ImageIcon, AlertTriangle } from "lucide-react";
-import { toPng } from 'html-to-image';
-import { toast } from "@/hooks/use-toast";
-import { motion } from "framer-motion";
-import { api } from '@/lib/api';
+import type React from "react"
 
-// --- Classification Setup ---
-const CONTENT_TYPES = {
-  FORMAL_LONG: '长的正经内容',
-  CHAT_LOG: '聊天记录',
-  SCATTERED: '挺多的零散内容',
-  OTHER: '其他'
-} as const;
+import { useState, useRef, useEffect } from "react"
+import { Textarea } from "@/components/ui/textarea"
+import { Button } from "@/components/ui/button"
+import { Upload, ImageDown, AlertCircle } from "lucide-react"
+import { streamingConvertChatToReport } from "@/components/summary/ai_service"
+import DocumentParser from "@/components/summary/parser"
+import { toPng } from "html-to-image"
+import CoinDisplay from "@/components/summary/coin-display"
+import PaymentDialog from "@/components/summary/payment-dialog"
+import { checkAndRefillCoins, calculateRequiredCoins, consumeCoins, getCoinBalance } from "@/components/summary/coin-service"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 
-type ContentType = typeof CONTENT_TYPES[keyof typeof CONTENT_TYPES];
+// 硬币套餐配置
+const COIN_PACKAGES = [
+  { amount: 3, price: 3 },
+  { amount: 10, price: 8 },
+  { amount: 25, price: 20 },
+  { amount: 60, price: 50 },
+  { amount: 100, price: 80 },
+  { amount: 300, price: 199 },
+]
 
-// Define the classification prompt structure
-const getClassificationPrompt = (text: string): string => `
-请判断以下输入内容的类型，从以下几种类型中选择最符合的一个：
-1.  "${CONTENT_TYPES.FORMAL_LONG}": 内容结构完整、主题明确、篇幅较长，像文章、报告、文档等。
-2.  "${CONTENT_TYPES.CHAT_LOG}": 包含明显的对话标记（如说话人姓名、时间戳、冒号分隔等），内容是多人或双人对话形式。
-3.  "${CONTENT_TYPES.SCATTERED}": 包含多个不连续的、主题可能分散的短文本片段、列表项、想法点等，整体缺乏连贯长文结构。
-4.  "${CONTENT_TYPES.OTHER}": 不属于以上任何一种，或者难以判断。
+export default function ChatToReport() {
+  const [chatContent, setChatContent] = useState("")
+  const [reportContent, setReportContent] = useState("")
+  const [isGenerating, setIsGenerating] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [coinBalance, setCoinBalance] = useState(0)
+  const [requiredCoins, setRequiredCoins] = useState(0)
+  const [showPaymentDialog, setShowPaymentDialog] = useState(false)
+  const [purchaseAmount, setPurchaseAmount] = useState(0)
+  const [purchasePrice, setPurchasePrice] = useState(0)
+  const [insufficientCoins, setInsufficientCoins] = useState(false)
 
-**请只返回分类名称，例如直接返回 "${CONTENT_TYPES.FORMAL_LONG}" 或 "${CONTENT_TYPES.CHAT_LOG}"。不要添加任何额外的解释或文字。**
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const chatInputRef = useRef<HTMLDivElement>(null)
+  const reportRef = useRef<HTMLDivElement>(null)
 
-# 输入内容 (仅为部分开头内容):
-${text}
+  // Determine if we're in "report mode" (after generation)
+  const isReportMode = reportContent !== ""
 
-# 输出分类名称:
-`;
-// --- End Classification Setup ---
+  // 更新硬币余额
+  const updateCoinBalance = () => {
+    const balance = getCoinBalance()
+    setCoinBalance(balance)
+  }
 
-export default function ChatTestPage() {
-  const [inputText, setInputText] = useState<string>("");
-  const [generatedHtml, setGeneratedHtml] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState<boolean>(false);
-  const [error, setError] = useState<string | null>(null);
-  const htmlDisplayRef = useRef<HTMLDivElement>(null);
-  const [isExporting, setIsExporting] = useState(false);
-  const [classifiedType, setClassifiedType] = useState<ContentType | null>(null);
-  const [isClassifying, setIsClassifying] = useState<boolean>(false);
+  // 初始化并检查硬币余额
+  useEffect(() => {
+    checkAndRefillCoins() // 检查是否需要月度补充
+    updateCoinBalance()
 
+    // 设置定期检查，以防用户长时间保持页面打开
+    const intervalId = setInterval(
+      () => {
+        checkAndRefillCoins()
+        updateCoinBalance()
+      },
+      60 * 60 * 1000,
+    ) // 每小时检查一次
 
-  const handleGenerateHtml = async () => {
-    if (!inputText.trim()) {
-      toast({
-        title: "输入为空",
-        description: "请输入内容。",
-        variant: "destructive",
-      });
-      return;
+    return () => clearInterval(intervalId)
+  }, [])
+
+  // 当输入内容变化时，计算所需硬币
+  useEffect(() => {
+    const coins = calculateRequiredCoins(chatContent)
+    setRequiredCoins(coins)
+
+    // 如果硬币不足，显示警告
+    setInsufficientCoins(coins > coinBalance)
+  }, [chatContent, coinBalance])
+
+  const handleGenerateReport = async () => {
+    if (!chatContent.trim()) return
+
+    // 检查硬币是否足够
+    const coinsNeeded = calculateRequiredCoins(chatContent)
+    if (coinsNeeded > coinBalance) {
+      setInsufficientCoins(true)
+      return
     }
 
-    setIsLoading(true);
-    setIsClassifying(true); // Start classifying
-    setError(null);
-    setGeneratedHtml(null);
-    setClassifiedType(null); // Reset previous classification
-
-    let currentClassification: ContentType | null = null;
-    // Define the hardcoded model for HTML generation
-    const htmlGenerationModel = 'google/gemini-2.5-flash-preview'; // Hardcoded model for Document2HTML
+    setIsGenerating(true)
+    setError(null)
+    setReportContent("")
 
     try {
-      // --- Step 1: Classify Content using api.chat ---
-      toast({ title: "正在分析内容类型..." });
-
-      // Extract first 50 lines for classification
-      const lines = inputText.split('\n');
-      const textForClassification = lines.slice(0, 50).join('\n');
-
-      const classificationPrompt = getClassificationPrompt(textForClassification); // Use truncated text
-      // Use a fast model suitable for classification
-      const classificationModel = 'google/gemini-2.0-flash-001'; // Use updated ID without prefix
-      const classificationResponse = await api.chat(classificationPrompt, classificationModel);
-
-      // Extract and validate the classification result
-      const rawClassification = classificationResponse.message.trim();
-      if (Object.values(CONTENT_TYPES).includes(rawClassification as any)) {
-          currentClassification = rawClassification as ContentType;
-      } else {
-          console.warn(`Received unexpected classification: "${rawClassification}". Falling back to '其他'.`);
-          const lowerCaseResult = rawClassification.toLowerCase();
-          if (lowerCaseResult.includes(CONTENT_TYPES.CHAT_LOG.toLowerCase())) {
-              currentClassification = CONTENT_TYPES.CHAT_LOG;
-          } else if (lowerCaseResult.includes(CONTENT_TYPES.FORMAL_LONG.toLowerCase())) {
-              currentClassification = CONTENT_TYPES.FORMAL_LONG;
-          } else if (lowerCaseResult.includes(CONTENT_TYPES.SCATTERED.toLowerCase())) {
-              currentClassification = CONTENT_TYPES.SCATTERED;
-          } else {
-              currentClassification = CONTENT_TYPES.OTHER;
-          }
+      // 消费硬币
+      console.log(`消费前硬币: ${coinBalance}, 需要消费: ${coinsNeeded}`)
+      const success = consumeCoins(coinsNeeded)
+      if (!success) {
+        throw new Error("硬币不足，无法生成报告")
       }
 
-      setClassifiedType(currentClassification);
-      setIsClassifying(false); // End classifying
+      // 更新硬币余额显示
+      updateCoinBalance()
+      console.log(`消费后硬币: ${getCoinBalance()}`)
 
-      toast({ title: `内容类型: ${currentClassification}. 开始使用 ${htmlGenerationModel} 生成网页...` });
-
-      // --- Step 2: Generate HTML (use FULL inputText and hardcoded model) ---
-      console.log(`Content classified as: ${currentClassification}. Generating HTML with ${htmlGenerationModel}`);
-
-      // Use the hardcoded model for HTML generation and the FULL input text
-      const htmlGenerationResponse = await api.Document2HTML(inputText, htmlGenerationModel); // Pass full inputText and hardcoded model
-      console.log("HTML Generation API Response:", htmlGenerationResponse);
-      setGeneratedHtml(htmlGenerationResponse.result);
-
+      // 使用流式API，逐步更新UI
+      await streamingConvertChatToReport(chatContent, (chunk) => {
+        setReportContent((prev) => prev + chunk)
+      })
     } catch (err) {
-      console.error("Error during process:", err);
-      const errorMessage = err instanceof Error ? err.message : "An unknown error occurred.";
-      let detailedError = errorMessage;
-      if ((err as any)?.response?.data?.error?.message) {
-          detailedError = (err as any).response.data.error.message;
-      } else if ((err as any)?.detail) {
-          detailedError = (err as any).detail;
-      }
-
-      setError(detailedError);
-      toast({
-        title: isClassifying ? "分析类型失败" : "生成网页失败",
-        description: detailedError,
-        variant: "destructive",
-      });
+      setError(err instanceof Error ? err.message : "生成日报时发生错误")
     } finally {
-      setIsLoading(false);
-      setIsClassifying(false);
+      setIsGenerating(false)
     }
-  };
+  }
 
-  const handleExportImage = useCallback(async () => {
-    if (!htmlDisplayRef.current || isExporting) {
-       if (!htmlDisplayRef.current) {
-          toast({
-             title: "导出失败",
-             description: "无法找到要导出的内容元素。",
-             variant: "destructive",
-          });
-       }
-      return;
+  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    if (!file) return
+
+    const reader = new FileReader()
+    reader.onload = (e) => {
+      const content = e.target?.result as string
+      setChatContent(content)
     }
+    reader.readAsText(file)
 
-    setIsExporting(true);
-    const targetElement = htmlDisplayRef.current;
+    // Reset the file input
+    if (fileInputRef.current) {
+      fileInputRef.current.value = ""
+    }
+  }
 
-    toast({
-      title: "准备导出图片",
-      description: "请稍候，正在渲染内容...",
-    });
+  const triggerFileUpload = () => {
+    fileInputRef.current?.click()
+  }
+
+  const downloadReportAsImage = async () => {
+    if (!reportRef.current) return
 
     try {
-      await new Promise(resolve => requestAnimationFrame(() => setTimeout(resolve, 500)));
+      const dataUrl = await toPng(reportRef.current, {
+        quality: 0.95,
+        pixelRatio: 2,
+        cacheBust: true,
+      })
 
-      console.log("Attempting to capture element:", targetElement);
-
-      const dataUrl = await toPng(targetElement, {
-         pixelRatio: 2,
-         backgroundColor: '#ffffff',
-      });
-
-      console.log("Image capture successful, creating download link.");
-
-      const link = document.createElement('a');
-      link.download = `generated-content-${Date.now()}.png`;
-      link.href = dataUrl;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-
-      toast({
-        title: "导出成功",
-        description: "图片已开始下载",
-        duration: 3000,
-      });
-    } catch (error) {
-      console.error('图片导出失败:', error);
-      toast({
-        title: "导出失败",
-        description: error instanceof Error ? error.message : "未知错误，请检查控制台获取详情。",
-        variant: "destructive",
-      });
-    } finally {
-       setIsExporting(false);
+      const link = document.createElement("a")
+      link.download = `聊天日报_${new Date().toLocaleDateString().replace(/\//g, "-")}.png`
+      link.href = dataUrl
+      link.click()
+    } catch (err) {
+      console.error("下载图片失败:", err)
     }
-  }, [isExporting]);
+  }
 
+  const resetAll = () => {
+    setReportContent("")
+    setError(null)
+  }
+
+  // 处理购买硬币
+  const handlePurchase = (amount: number) => {
+    // 查找对应的价格
+    const packageInfo = COIN_PACKAGES.find((pkg) => pkg.amount === amount)
+    const price = packageInfo ? packageInfo.price : amount // 如果找不到套餐，则使用数量作为价格
+
+    setPurchaseAmount(amount)
+    setPurchasePrice(price)
+    setShowPaymentDialog(true)
+  }
+
+  // 支付完成后的回调
+  const handlePaymentComplete = () => {
+    setShowPaymentDialog(false)
+  }
+
+  // 硬币添加后的回调
+  const handleCoinsAdded = (amount: number) => {
+    console.log(`添加了 ${amount} 枚硬币`)
+    updateCoinBalance()
+  }
+
+  // 添加键盘快捷键支持
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // 检测 Cmd+Enter 或 Ctrl+Enter
+      if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
+        if (chatContent.trim() && !isGenerating && !insufficientCoins) {
+          handleGenerateReport()
+        }
+      }
+    }
+
+    window.addEventListener("keydown", handleKeyDown)
+    return () => window.removeEventListener("keydown", handleKeyDown)
+  }, [chatContent, isGenerating, insufficientCoins])
+
+  // 添加拖放文件支持
+  useEffect(() => {
+    const chatInputElement = chatInputRef.current
+    if (!chatInputElement) return
+
+    const handleDragOver = (e: DragEvent) => {
+      e.preventDefault()
+      e.stopPropagation()
+      chatInputElement.classList.add("border-black")
+    }
+
+    const handleDragLeave = (e: DragEvent) => {
+      e.preventDefault()
+      e.stopPropagation()
+      chatInputElement.classList.remove("border-black")
+    }
+
+    const handleDrop = (e: DragEvent) => {
+      e.preventDefault()
+      e.stopPropagation()
+      chatInputElement.classList.remove("border-black")
+
+      if (e.dataTransfer?.files && e.dataTransfer.files.length > 0) {
+        const file = e.dataTransfer.files[0]
+        if (file.type === "text/plain") {
+          const reader = new FileReader()
+          reader.onload = (e) => {
+            const content = e.target?.result as string
+            setChatContent(content)
+          }
+          reader.readAsText(file)
+        }
+      }
+    }
+
+    chatInputElement.addEventListener("dragover", handleDragOver)
+    chatInputElement.addEventListener("dragleave", handleDragLeave)
+    chatInputElement.addEventListener("drop", handleDrop)
+
+    return () => {
+      chatInputElement.removeEventListener("dragover", handleDragOver)
+      chatInputElement.removeEventListener("dragleave", handleDragLeave)
+      chatInputElement.removeEventListener("drop", handleDrop)
+    }
+  }, [])
 
   return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      className="flex flex-col h-screen p-4 gap-4 bg-background"
-    >
-      <h1 className="text-2xl font-semibold">AI Webpage Generator Test</h1>
+    <div className="min-h-screen bg-white">
+      <div className="max-w-5xl mx-auto px-4 py-6 sm:py-12">
+        <div className="flex justify-between items-center mb-6">
+          <div>
+            <h1 className="text-2xl font-medium text-black mb-1 text-center sm:text-left">聊天日报</h1>
+            <p className="text-gray-500 text-sm">将杂乱的聊天记录转化为结构化的社群日报</p>
+          </div>
+          <CoinDisplay coinBalance={coinBalance} onPurchase={handlePurchase} />
+        </div>
 
-      <div className="flex flex-col gap-2">
-        <Textarea
-          placeholder="输入你的内容，AI会尝试将其转换为网页..."
-          value={inputText}
-          onChange={(e) => setInputText(e.target.value)}
-          rows={6}
-          className="resize-none"
-          disabled={isLoading}
-        />
-        <div className="flex items-center justify-between gap-2 mt-2"> {/* Use justify-between */}
-           {/* Button is now the only item on the left */}
-           <Button onClick={handleGenerateHtml} disabled={isLoading || !inputText.trim()}>
-             {isLoading ? (
-               <>
-                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                 {isClassifying ? "正在分析..." : "正在生成..."}
-               </>
-             ) : (
-               "分析并生成网页"
-             )}
-           </Button>
+        {insufficientCoins && (
+          <Alert variant="destructive" className="mb-4">
+            <AlertCircle className="h-4 w-4" />
+            <AlertTitle>硬币不足</AlertTitle>
+            <AlertDescription>
+              您当前的硬币余额不足以处理这么多文字。需要 {requiredCoins} 枚硬币，您有 {coinBalance} 枚。
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => handlePurchase(Math.max(3, requiredCoins - coinBalance))}
+                className="ml-2 h-7 text-xs"
+              >
+                购买硬币
+              </Button>
+            </AlertDescription>
+          </Alert>
+        )}
 
-            {/* Display Classification Result on the right */}
-            {classifiedType && !isLoading && (
-               <span className="text-sm text-muted-foreground">类型: {classifiedType}</span>
-            )}
+        <div className="grid grid-cols-1 md:grid-cols-12 gap-4 sm:gap-6 transition-all duration-300">
+          {/* Input Section - dynamically sized */}
+          <div
+            ref={chatInputRef}
+            className={`space-y-3 sm:space-y-4 ${isReportMode ? "md:col-span-5" : "md:col-span-7"}`}
+          >
+            <div className="flex items-center justify-between">
+              <label className="block text-sm font-medium text-gray-700">聊天记录</label>
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-gray-500">消耗 {requiredCoins} 枚硬币</span>
+                <input type="file" accept=".txt" className="hidden" ref={fileInputRef} onChange={handleFileUpload} />
+                <button
+                  onClick={triggerFileUpload}
+                  className="flex items-center text-xs text-gray-500 hover:text-gray-700"
+                >
+                  <Upload className="h-3 w-3 mr-1" />
+                  上传文本文件
+                </button>
+              </div>
+            </div>
+            <div className="relative">
+              <Textarea
+                placeholder="粘贴你的聊天记录，或拖放文本文件到这里..."
+                className="min-h-[300px] sm:min-h-[400px] resize-none border-gray-200 rounded-md transition-all duration-200"
+                value={chatContent}
+                onChange={(e) => setChatContent(e.target.value)}
+              />
+              {!chatContent && (
+                <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                  <div className="text-gray-400 text-sm text-center px-4">
+                    <p>拖放 .txt 文件到这里</p>
+                    <p className="text-xs mt-1">或粘贴聊天记录</p>
+                  </div>
+                </div>
+              )}
+            </div>
+            <div className="text-xs text-gray-400 text-right">提示: 每月自动获得 1 枚免费硬币</div>
+          </div>
+
+          {/* Output Section - dynamically sized */}
+          <div className={`space-y-3 sm:space-y-4 ${isReportMode ? "md:col-span-7" : "md:col-span-5"}`}>
+            <div className="flex items-center justify-between">
+              <label className="block text-sm font-medium text-gray-700">日报摘要</label>
+            </div>
+
+            <div className="min-h-[300px] sm:min-h-[400px] overflow-auto">
+              {reportContent ? (
+                <div ref={reportRef}>
+                  <DocumentParser inputText={reportContent} />
+                </div>
+              ) : isGenerating ? (
+                <div className="bg-gray-50 rounded-md p-4 relative h-[300px] sm:h-[400px] flex items-center justify-center">
+                  <div className="h-5 w-5 bg-black rounded-full animate-pulse"></div>
+                </div>
+              ) : error ? (
+                <div className="bg-gray-50 rounded-md p-4 relative h-[300px] sm:h-[400px]">
+                  <div className="text-red-500 text-sm p-4">错误: {error}</div>
+                </div>
+              ) : (
+                <div className="bg-gray-50 rounded-md p-4 relative h-[300px] sm:h-[400px] flex items-center justify-center">
+                  <div className="text-gray-400 text-sm">生成的日报将显示在这里</div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        <div className="mt-4 sm:mt-6 flex justify-end">
+          {reportContent ? (
+            <div className="flex space-x-3">
+              <Button
+                onClick={handleGenerateReport}
+                disabled={!chatContent.trim() || isGenerating || insufficientCoins}
+                variant="outline"
+                className="text-gray-700 border-gray-300 text-sm"
+              >
+                重新生成
+              </Button>
+              <Button
+                onClick={downloadReportAsImage}
+                className="bg-blue-600 hover:bg-blue-700 text-white rounded-md px-4 py-2 text-sm flex items-center"
+              >
+                <ImageDown className="h-4 w-4 mr-1.5" />
+                下载图片
+              </Button>
+            </div>
+          ) : (
+            <Button
+              onClick={handleGenerateReport}
+              disabled={!chatContent.trim() || isGenerating || insufficientCoins}
+              className="bg-black hover:bg-black/90 text-white rounded-md px-4 py-2 text-sm"
+            >
+              {isGenerating ? "生成中..." : "生成日报"}
+            </Button>
+          )}
         </div>
       </div>
 
-      <div className="flex-1 border rounded-md overflow-auto p-4 bg-muted/20 relative min-h-[300px]">
-        {isLoading && !generatedHtml && (
-          <div className="absolute inset-0 flex items-center justify-center bg-background/50 backdrop-blur-sm z-10">
-             <Loader2 className="h-8 w-8 animate-spin text-primary" />
-             <span className="ml-2 text-primary">{isClassifying ? "正在分析内容类型..." : "正在生成HTML..."}</span> {/* Dynamic loading text in overlay */}
-          </div>
-        )}
-        {error && (
-          <div className="flex flex-col items-center justify-center h-full text-destructive">
-            <AlertTriangle className="h-8 w-8 mx-auto mb-2" />
-            <p className="text-center font-semibold">处理出错</p> {/* Generic error title */}
-            <p className="text-center text-sm">{error}</p> {/* Display potentially detailed error */}
-          </div>
-        )}
-        {!isLoading && !error && !generatedHtml && (
-           <div className="flex items-center justify-center h-full text-muted-foreground">
-             <p>生成的网页内容将显示在这里</p>
-           </div>
-        )}
-        {generatedHtml && (
-          <div ref={htmlDisplayRef} key={generatedHtml} dangerouslySetInnerHTML={{ __html: generatedHtml }} />
-        )}
-        {generatedHtml && !isLoading && (
-             <Button
-               variant="outline"
-               size="sm"
-               onClick={handleExportImage}
-               className="absolute top-2 right-2 gap-1 z-20"
-               disabled={isExporting}
-              >
-               {isExporting ? (
-                 <>
-                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                   导出中...
-                 </>
-               ) : (
-                 <>
-                   <ImageIcon className="h-4 w-4" />
-                   导出图片
-                 </>
-               )}
-             </Button>
-        )}
-      </div>
-    </motion.div>
-  );
+      {/* 支付对话框 */}
+      <PaymentDialog
+        isOpen={showPaymentDialog}
+        onClose={handlePaymentComplete}
+        coinAmount={purchaseAmount}
+        price={purchasePrice}
+        onCoinsAdded={handleCoinsAdded}
+      />
+    </div>
+  )
 }
