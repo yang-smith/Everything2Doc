@@ -2,7 +2,7 @@
 
 // 硬币相关常量
 export const COINS_PER_MONTH = 1
-export const CHARS_PER_COIN = 6000
+export const CHARS_PER_COIN = 12000
 export const STORAGE_KEY = "everything2doc_coins"
 export const LAST_REFILL_KEY = "everything2doc_last_refill"
 
