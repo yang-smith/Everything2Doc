@@ -16,10 +16,12 @@ interface PaymentDialogProps {
   onCoinsAdded: (amount: number) => void
 }
 
-// 简单的优惠码配置
+// 优惠码配置 - 改为多给硬币
 const COUPON_CODES = {
-  EVERYTHING2DOC: { type: "discount", value: 0.5, description: "限时50%折扣" },
-  ZR8N4W6T: { type: "discount", value: 0.8, description: "超级80%折扣" },
+  BONUS50: { type: "bonus", value: 5, description: "额外获得5枚硬币" },
+  EXTRA10: { type: "bonus", value: 10, description: "额外获得10枚硬币" },
+  DOUBLE: { type: "bonus", value: 0, description: "双倍硬币奖励", isDouble: true },
+  GIFT20: { type: "bonus", value: 20, description: "额外获得20枚硬币" },
 }
 
 export default function PaymentDialog({ isOpen, onClose, coinAmount, price, onCoinsAdded }: PaymentDialogProps) {
@@ -48,9 +50,21 @@ export default function PaymentDialog({ isOpen, onClose, coinAmount, price, onCo
     setCouponError("")
   }
 
-  // 计算最终价格和硬币数量
-  const finalPrice = appliedCoupon?.type === "discount" ? price * (1 - appliedCoupon.value) : price
-  const finalCoins = appliedCoupon?.type === "bonus" ? coinAmount + appliedCoupon.value : coinAmount
+  // 计算最终硬币数量
+  const calculateFinalCoins = () => {
+    if (!appliedCoupon) return coinAmount
+    
+    if (appliedCoupon.isDouble) {
+      // 双倍硬币
+      return coinAmount * 2
+    } else {
+      // 额外硬币
+      return coinAmount + appliedCoupon.value
+    }
+  }
+
+  const finalCoins = calculateFinalCoins()
+  const bonusCoins = finalCoins - coinAmount
 
   // 模拟支付过程
   const simulatePayment = () => {
@@ -90,7 +104,7 @@ export default function PaymentDialog({ isOpen, onClose, coinAmount, price, onCo
     <Dialog open={isOpen} onOpenChange={(open) => !open && cancelPayment()}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>支付 ¥{finalPrice.toFixed(2)}</DialogTitle>
+          <DialogTitle>支付 ¥{price.toFixed(2)}</DialogTitle>
         </DialogHeader>
 
         <div className="flex flex-col items-center justify-center py-6">
@@ -106,7 +120,7 @@ export default function PaymentDialog({ isOpen, onClose, coinAmount, price, onCo
                 {!appliedCoupon ? (
                   <div className="flex gap-2">
                     <Input
-                      placeholder="输入优惠码"
+                      placeholder="输入优惠码获得额外硬币"
                       value={couponCode}
                       onChange={(e) => setCouponCode(e.target.value)}
                       className="flex-1"
@@ -132,39 +146,34 @@ export default function PaymentDialog({ isOpen, onClose, coinAmount, price, onCo
                 {couponError && <div className="text-xs text-red-500">{couponError}</div>}
               </div>
 
-              {/* 价格摘要 */}
+              {/* 硬币摘要 */}
               <div className="w-full mb-4 p-3 bg-gray-50 rounded-md">
                 <div className="flex justify-between text-sm">
-                  <span>硬币数量:</span>
+                  <span>基础硬币:</span>
                   <span>{coinAmount} 枚</span>
                 </div>
-                {appliedCoupon?.type === "bonus" && (
+                {appliedCoupon && (
                   <div className="flex justify-between text-sm text-green-600">
                     <span>优惠码奖励:</span>
-                    <span>+{appliedCoupon.value} 枚</span>
-                  </div>
-                )}
-                <div className="flex justify-between text-sm">
-                  <span>原价:</span>
-                  <span className={appliedCoupon?.type === "discount" ? "line-through text-gray-500" : ""}>
-                    ¥{price.toFixed(2)}
-                  </span>
-                </div>
-                {appliedCoupon?.type === "discount" && (
-                  <div className="flex justify-between text-sm text-green-600">
-                    <span>折扣价:</span>
-                    <span>¥{finalPrice.toFixed(2)}</span>
+                    <span>
+                      {appliedCoupon.isDouble 
+                        ? `+${coinAmount} 枚 (双倍)` 
+                        : `+${appliedCoupon.value} 枚`
+                      }
+                    </span>
                   </div>
                 )}
                 <hr className="my-2" />
                 <div className="flex justify-between font-medium">
-                  <span>总计:</span>
-                  <span>
-                    {finalCoins} 枚硬币 / ¥{finalPrice.toFixed(2)}
-                  </span>
+                  <span>总计硬币:</span>
+                  <span className="text-blue-600">{finalCoins} 枚</span>
+                </div>
+                <div className="flex justify-between text-sm text-gray-600">
+                  <span>支付金额:</span>
+                  <span>¥{price.toFixed(2)}</span>
                 </div>
               </div>
-
+              
               <div className="bg-white p-4 rounded-lg mb-4 border">
                 <Image
                   src="/qrcode.jpg"
@@ -203,8 +212,14 @@ export default function PaymentDialog({ isOpen, onClose, coinAmount, price, onCo
                 </svg>
               </div>
               <p className="text-green-600 font-medium">支付成功！</p>
-              <p className="text-sm text-gray-500 mt-1">已添加 {finalCoins} 枚硬币到您的账户</p>
-              {appliedCoupon && <p className="text-xs text-green-600 mt-1">优惠码 {appliedCoupon.code} 已生效</p>}
+              <p className="text-sm text-gray-500 mt-1">
+                已添加 {finalCoins} 枚硬币到您的账户
+              </p>
+              {appliedCoupon && (
+                <p className="text-xs text-green-600 mt-1">
+                  优惠码 {appliedCoupon.code} 已生效，额外获得 {bonusCoins} 枚硬币
+                </p>
+              )}
             </div>
           )}
         </div>
