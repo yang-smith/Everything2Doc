@@ -294,12 +294,12 @@ export default function ChatToReport() {
             {isSubscribed ? (
               <span className="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded-full flex items-center">
                 <CreditCard className="h-3 w-3 mr-1" />
-                月度套餐
+                月度会员
               </span>
             ) : (
               <Button onClick={handleSubscribe} variant="outline" size="sm" className="text-xs h-7">
                 <CreditCard className="h-3 w-3 mr-1" />
-                月度套餐
+                兑换会员
               </Button>
             )}
           </div>
@@ -328,7 +328,7 @@ export default function ChatToReport() {
                   onClick={handleSubscribe}
                   className="h-7 text-xs bg-blue-600 hover:bg-blue-700"
                 >
-                  月度套餐
+                  兑换会员
                 </Button>
               </div>
             </AlertDescription>

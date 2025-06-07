@@ -7,6 +7,7 @@ export const MONTHLY_PACKAGE_LIMIT = 200
 export const STORAGE_KEY = "everything2doc_coins"
 export const LAST_REFILL_KEY = "everything2doc_last_refill"
 export const MONTHLY_PACKAGE_KEY = "everything2doc_monthly_package"
+export const USED_CODES_KEY = "everything2doc_used_codes"
 
 // 硬币数据接口
 export interface CoinData {
@@ -19,6 +20,12 @@ export interface MonthlyPackageData {
   isActive: boolean
   usedCoins: number
   activatedAt: string // ISO日期字符串
+}
+
+// 兑换码使用记录接口
+export interface UsedCodesData {
+  codes: string[]
+  lastUpdated: string
 }
 
 // 初始化硬币数据
@@ -136,14 +143,66 @@ export function checkMonthlyPackageExpiry(): void {
   }
 }
 
-// 激活月度套餐
-export function activateMonthlyPackage(): void {
+// 获取已使用的兑换码
+export function getUsedCodes(): UsedCodesData {
+  if (typeof window === "undefined") {
+    return { codes: [], lastUpdated: "" }
+  }
+
+  try {
+    const storedData = localStorage.getItem(USED_CODES_KEY)
+    if (!storedData) {
+      return { codes: [], lastUpdated: "" }
+    }
+    return JSON.parse(storedData)
+  } catch (error) {
+    console.error("获取已使用兑换码失败:", error)
+    return { codes: [], lastUpdated: "" }
+  }
+}
+
+// 保存已使用的兑换码
+export function saveUsedCodes(data: UsedCodesData): void {
+  if (typeof window === "undefined") return
+
+  try {
+    localStorage.setItem(USED_CODES_KEY, JSON.stringify(data))
+  } catch (error) {
+    console.error("保存已使用兑换码失败:", error)
+  }
+}
+
+// 检查兑换码是否已使用
+export function isCodeUsed(code: string): boolean {
+  const usedCodes = getUsedCodes()
+  return usedCodes.codes.includes(code.toUpperCase())
+}
+
+// 标记兑换码为已使用
+export function markCodeAsUsed(code: string): void {
+  const usedCodes = getUsedCodes()
+  const upperCode = code.toUpperCase()
+  
+  if (!usedCodes.codes.includes(upperCode)) {
+    usedCodes.codes.push(upperCode)
+    usedCodes.lastUpdated = new Date().toISOString()
+    saveUsedCodes(usedCodes)
+  }
+}
+
+// 激活月度套餐（修改版，支持兑换码）
+export function activateMonthlyPackage(redemptionCode?: string): void {
   const now = new Date().toISOString()
   saveMonthlyPackageData({
     isActive: true,
     usedCoins: 0,
     activatedAt: now
   })
+
+  // 如果提供了兑换码，标记为已使用
+  if (redemptionCode) {
+    markCodeAsUsed(redemptionCode)
+  }
 }
 
 // 检查是否可以使用硬币（月度套餐或普通硬币）
