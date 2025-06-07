@@ -5,13 +5,14 @@ import type React from "react"
 import { useState, useRef, useEffect } from "react"
 import { Textarea } from "@/components/ui/textarea"
 import { Button } from "@/components/ui/button"
-import { Upload, ImageDown, AlertCircle } from "lucide-react"
+import { Upload, ImageDown, AlertCircle, CreditCard } from "lucide-react"
 import { streamingConvertChatToReport } from "@/components/summary/ai_service"
 import DocumentParser from "@/components/summary/parser"
 import { toPng } from "html-to-image"
 import CoinDisplay from "@/components/summary/coin-display"
 import PaymentDialog from "@/components/summary/payment-dialog"
-import { checkAndRefillCoins, calculateRequiredCoins, consumeCoins, getCoinBalance } from "@/components/summary/coin-service"
+import SubscriptionDialog from "@/components/summary/subscription-dialog"
+import { checkAndRefillCoins, calculateRequiredCoins, consumeCoins, getCoinBalance, canUseCoins, getAvailableCoinsInfo, checkMonthlyPackageExpiry } from "@/components/summary/coin-service"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 
 // 硬币套餐配置
@@ -32,9 +33,12 @@ export default function ChatToReport() {
   const [coinBalance, setCoinBalance] = useState(0)
   const [requiredCoins, setRequiredCoins] = useState(0)
   const [showPaymentDialog, setShowPaymentDialog] = useState(false)
+  const [showSubscriptionDialog, setShowSubscriptionDialog] = useState(false)
   const [purchaseAmount, setPurchaseAmount] = useState(0)
   const [purchasePrice, setPurchasePrice] = useState(0)
   const [insufficientCoins, setInsufficientCoins] = useState(false)
+  const [isSubscribed, setIsSubscribed] = useState(false)
+  const [isClient, setIsClient] = useState(false)
 
   const fileInputRef = useRef<HTMLInputElement>(null)
   const chatInputRef = useRef<HTMLDivElement>(null)
@@ -43,14 +47,19 @@ export default function ChatToReport() {
   // Determine if we're in "report mode" (after generation)
   const isReportMode = reportContent !== ""
 
-  // 更新硬币余额
+  // 更新硬币余额和订阅状态
   const updateCoinBalance = () => {
-    const balance = getCoinBalance()
-    setCoinBalance(balance)
+    if (typeof window === "undefined") return
+    
+    checkMonthlyPackageExpiry() // 检查月度套餐是否过期
+    const info = getAvailableCoinsInfo()
+    setCoinBalance(info.remainingCoins || 0)
+    setIsSubscribed(info.hasMonthlyPackage)
   }
 
   // 初始化并检查硬币余额
   useEffect(() => {
+    setIsClient(true)
     checkAndRefillCoins() // 检查是否需要月度补充
     updateCoinBalance()
 
@@ -68,19 +77,21 @@ export default function ChatToReport() {
 
   // 当输入内容变化时，计算所需硬币
   useEffect(() => {
+    if (!isClient) return
+    
     const coins = calculateRequiredCoins(chatContent)
     setRequiredCoins(coins)
 
-    // 如果硬币不足，显示警告
-    setInsufficientCoins(coins > coinBalance)
-  }, [chatContent, coinBalance])
+    // 检查是否可以使用硬币
+    setInsufficientCoins(!canUseCoins(coins))
+  }, [chatContent, coinBalance, isSubscribed, isClient])
 
   const handleGenerateReport = async () => {
     if (!chatContent.trim()) return
 
     // 检查硬币是否足够
     const coinsNeeded = calculateRequiredCoins(chatContent)
-    if (coinsNeeded > coinBalance) {
+    if (!canUseCoins(coinsNeeded)) {
       setInsufficientCoins(true)
       return
     }
@@ -91,7 +102,6 @@ export default function ChatToReport() {
 
     try {
       // 消费硬币
-      console.log(`消费前硬币: ${coinBalance}, 需要消费: ${coinsNeeded}`)
       const success = consumeCoins(coinsNeeded)
       if (!success) {
         throw new Error("硬币不足，无法生成报告")
@@ -99,7 +109,6 @@ export default function ChatToReport() {
 
       // 更新硬币余额显示
       updateCoinBalance()
-      console.log(`消费后硬币: ${getCoinBalance()}`)
 
       // 使用流式API，逐步更新UI
       await streamingConvertChatToReport(chatContent, (chunk) => {
@@ -240,6 +249,38 @@ export default function ChatToReport() {
     }
   }, [])
 
+  // 处理月度套餐购买
+  const handleSubscribe = () => {
+    setShowSubscriptionDialog(true)
+  }
+
+  // 订阅完成后的回调
+  const handleSubscriptionComplete = () => {
+    updateCoinBalance() // 这会自动更新订阅状态
+  }
+
+  // 如果还在服务端渲染，显示加载状态
+  if (!isClient) {
+    return (
+      <div className="min-h-screen bg-white">
+        <div className="max-w-5xl mx-auto px-4 py-6 sm:py-12">
+          <div className="flex justify-between items-center mb-6">
+            <div>
+              <h1 className="text-2xl font-medium text-black mb-1 text-center sm:text-left">聊天日报</h1>
+              <p className="text-gray-500 text-sm">将杂乱的聊天记录转化为结构化的社群日报</p>
+            </div>
+            <div className="flex items-center gap-3">
+              <div className="flex items-center bg-amber-50 text-amber-800 rounded-full px-3 py-1 text-sm">
+                <span>加载中...</span>
+              </div>
+            </div>
+          </div>
+          {/* 其他内容保持不变，但不显示交互功能 */}
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="min-h-screen bg-white">
       <div className="max-w-5xl mx-auto px-4 py-6 sm:py-12">
@@ -248,23 +289,48 @@ export default function ChatToReport() {
             <h1 className="text-2xl font-medium text-black mb-1 text-center sm:text-left">聊天日报</h1>
             <p className="text-gray-500 text-sm">将杂乱的聊天记录转化为结构化的社群日报</p>
           </div>
-          <CoinDisplay coinBalance={coinBalance} onPurchase={handlePurchase} />
+          <div className="flex items-center gap-3">
+            <CoinDisplay coinBalance={coinBalance} onPurchase={handlePurchase} />
+            {isSubscribed ? (
+              <span className="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded-full flex items-center">
+                <CreditCard className="h-3 w-3 mr-1" />
+                月度套餐
+              </span>
+            ) : (
+              <Button onClick={handleSubscribe} variant="outline" size="sm" className="text-xs h-7">
+                <CreditCard className="h-3 w-3 mr-1" />
+                月度套餐
+              </Button>
+            )}
+          </div>
         </div>
 
         {insufficientCoins && (
           <Alert variant="destructive" className="mb-4">
             <AlertCircle className="h-4 w-4" />
             <AlertTitle>硬币不足</AlertTitle>
-            <AlertDescription>
-              您当前的硬币余额不足以处理这么多文字。需要 {requiredCoins} 枚硬币，您有 {coinBalance} 枚。
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => handlePurchase(Math.max(3, requiredCoins - coinBalance))}
-                className="ml-2 h-7 text-xs"
-              >
-                购买硬币
-              </Button>
+            <AlertDescription className="flex items-center justify-between">
+              <span>
+                您当前的硬币余额不足以处理这么多文字。需要 {requiredCoins} 枚硬币，您有 {coinBalance} 枚。
+              </span>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handlePurchase(Math.max(3, requiredCoins - coinBalance))}
+                  className="h-7 text-xs"
+                >
+                  购买硬币
+                </Button>
+                <Button
+                  variant="default"
+                  size="sm"
+                  onClick={handleSubscribe}
+                  className="h-7 text-xs bg-blue-600 hover:bg-blue-700"
+                >
+                  月度套餐
+                </Button>
+              </div>
             </AlertDescription>
           </Alert>
         )}
@@ -305,7 +371,7 @@ export default function ChatToReport() {
                 </div>
               )}
             </div>
-            <div className="text-xs text-gray-400 text-right">提示: 每月自动获得 1 枚免费硬币</div>
+            <div className="text-xs text-gray-400 text-right">提示: 每月自动获得 3 枚免费硬币</div>
           </div>
 
           {/* Output Section - dynamically sized */}
@@ -374,6 +440,13 @@ export default function ChatToReport() {
         coinAmount={purchaseAmount}
         price={purchasePrice}
         onCoinsAdded={handleCoinsAdded}
+      />
+
+      {/* 订阅对话框 */}
+      <SubscriptionDialog
+        isOpen={showSubscriptionDialog}
+        onClose={() => setShowSubscriptionDialog(false)}
+        onSubscribed={handleSubscriptionComplete}
       />
     </div>
   )

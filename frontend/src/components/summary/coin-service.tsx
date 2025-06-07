@@ -1,15 +1,24 @@
 // 硬币管理服务
 
 // 硬币相关常量
-export const COINS_PER_MONTH = 1
+export const COINS_PER_MONTH = 3
 export const CHARS_PER_COIN = 12000
+export const MONTHLY_PACKAGE_LIMIT = 200
 export const STORAGE_KEY = "everything2doc_coins"
 export const LAST_REFILL_KEY = "everything2doc_last_refill"
+export const MONTHLY_PACKAGE_KEY = "everything2doc_monthly_package"
 
 // 硬币数据接口
 export interface CoinData {
   balance: number
   lastRefill: string // ISO日期字符串
+}
+
+// 月度套餐数据接口
+export interface MonthlyPackageData {
+  isActive: boolean
+  usedCoins: number
+  activatedAt: string // ISO日期字符串
 }
 
 // 初始化硬币数据
@@ -75,19 +84,151 @@ export function calculateRequiredCoins(text: string): number {
   return Math.max(1, Math.ceil(charCount / CHARS_PER_COIN))
 }
 
-// 消费硬币
+// 获取月度套餐数据
+export function getMonthlyPackageData(): MonthlyPackageData {
+  if (typeof window === "undefined") {
+    return { isActive: false, usedCoins: 0, activatedAt: "" }
+  }
+
+  try {
+    const storedData = localStorage.getItem(MONTHLY_PACKAGE_KEY)
+    if (!storedData) {
+      return { isActive: false, usedCoins: 0, activatedAt: "" }
+    }
+    return JSON.parse(storedData)
+  } catch (error) {
+    console.error("获取月度套餐数据失败:", error)
+    return { isActive: false, usedCoins: 0, activatedAt: "" }
+  }
+}
+
+// 保存月度套餐数据
+export function saveMonthlyPackageData(data: MonthlyPackageData): void {
+  if (typeof window === "undefined") return
+
+  try {
+    localStorage.setItem(MONTHLY_PACKAGE_KEY, JSON.stringify(data))
+  } catch (error) {
+    console.error("保存月度套餐数据失败:", error)
+  }
+}
+
+// 检查月度套餐是否过期
+export function checkMonthlyPackageExpiry(): void {
+  const packageData = getMonthlyPackageData()
+  
+  if (!packageData.isActive) return
+
+  const now = new Date()
+  const activatedAt = new Date(packageData.activatedAt)
+  
+  // 检查是否已经过了一个月
+  const nextMonth = new Date(activatedAt)
+  nextMonth.setMonth(nextMonth.getMonth() + 1)
+  
+  if (now >= nextMonth) {
+    // 月度套餐已过期，重置状态
+    saveMonthlyPackageData({
+      isActive: false,
+      usedCoins: 0,
+      activatedAt: ""
+    })
+  }
+}
+
+// 激活月度套餐
+export function activateMonthlyPackage(): void {
+  const now = new Date().toISOString()
+  saveMonthlyPackageData({
+    isActive: true,
+    usedCoins: 0,
+    activatedAt: now
+  })
+}
+
+// 检查是否可以使用硬币（月度套餐或普通硬币）
+export function canUseCoins(amount: number): boolean {
+  if (amount <= 0) return true
+
+  // 先检查月度套餐是否过期
+  checkMonthlyPackageExpiry()
+  
+  const packageData = getMonthlyPackageData()
+  
+  if (packageData.isActive) {
+    // 有月度套餐，检查是否超过限额
+    return (packageData.usedCoins + amount) <= MONTHLY_PACKAGE_LIMIT
+  } else {
+    // 没有月度套餐，检查普通硬币余额
+    const coinData = getCoinData()
+    return coinData.balance >= amount
+  }
+}
+
+// 消费硬币（修改版）
 export function consumeCoins(amount: number): boolean {
   if (amount <= 0) return true
 
-  const coinData = getCoinData()
-
-  if (coinData.balance < amount) {
-    return false // 硬币不足
+  // 先检查月度套餐是否过期
+  checkMonthlyPackageExpiry()
+  
+  const packageData = getMonthlyPackageData()
+  
+  if (packageData.isActive) {
+    // 有月度套餐，从月度限额中扣除
+    if ((packageData.usedCoins + amount) > MONTHLY_PACKAGE_LIMIT) {
+      return false // 超过月度限额
+    }
+    
+    packageData.usedCoins += amount
+    saveMonthlyPackageData(packageData)
+    return true
+  } else {
+    // 没有月度套餐，从普通硬币中扣除
+    const coinData = getCoinData()
+    
+    if (coinData.balance < amount) {
+      return false // 硬币不足
+    }
+    
+    coinData.balance -= amount
+    saveCoinData(coinData)
+    return true
   }
+}
 
-  coinData.balance -= amount
-  saveCoinData(coinData)
-  return true
+// 获取当前可用硬币信息
+export function getAvailableCoinsInfo(): {
+  hasMonthlyPackage: boolean
+  remainingCoins?: number
+  usedCoins?: number
+  totalLimit?: number
+} {
+  // 先检查月度套餐是否过期
+  checkMonthlyPackageExpiry()
+  
+  const packageData = getMonthlyPackageData()
+  
+  if (packageData.isActive) {
+    return {
+      hasMonthlyPackage: true,
+      usedCoins: packageData.usedCoins,
+      remainingCoins: MONTHLY_PACKAGE_LIMIT - packageData.usedCoins,
+      totalLimit: MONTHLY_PACKAGE_LIMIT
+    }
+  } else {
+    const coinData = getCoinData()
+    return {
+      hasMonthlyPackage: false,
+      remainingCoins: coinData.balance
+    }
+  }
+}
+
+// 获取当前硬币余额（兼容性保持）
+export function getCoinBalance(): number {
+  const info = getAvailableCoinsInfo()
+  return info.remainingCoins || 0
 }
 
 // 添加硬币
@@ -97,9 +238,4 @@ export function addCoins(amount: number): void {
   const coinData = getCoinData()
   coinData.balance += amount
   saveCoinData(coinData)
-}
-
-// 获取当前硬币余额
-export function getCoinBalance(): number {
-  return getCoinData().balance
 }

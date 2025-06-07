@@ -1,9 +1,10 @@
 "use client"
 
-import { useState } from "react"
-import { Coins, Plus } from "lucide-react"
+import { useState, useEffect } from "react"
+import { Coins, Plus, Crown } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
+import { getAvailableCoinsInfo } from "./coin-service"
 
 interface CoinDisplayProps {
   coinBalance: number
@@ -19,6 +20,8 @@ interface CoinPackage {
 
 export default function CoinDisplay({ coinBalance, onPurchase }: CoinDisplayProps) {
   const [isDialogOpen, setIsDialogOpen] = useState(false)
+  const [hasMonthlyPackage, setHasMonthlyPackage] = useState(false)
+  const [isClient, setIsClient] = useState(false)
 
   // 硬币套餐配置
   const coinPackages: CoinPackage[] = [
@@ -30,6 +33,13 @@ export default function CoinDisplay({ coinBalance, onPurchase }: CoinDisplayProp
     { amount: 300, price: 199, isBestValue: true },
   ]
 
+  // 在客户端挂载后获取硬币信息
+  useEffect(() => {
+    setIsClient(true)
+    const coinsInfo = getAvailableCoinsInfo()
+    setHasMonthlyPackage(coinsInfo.hasMonthlyPackage)
+  }, [])
+
   // 处理购买硬币
   const handlePurchase = (amount: number, price: number) => {
     if (onPurchase) {
@@ -38,12 +48,36 @@ export default function CoinDisplay({ coinBalance, onPurchase }: CoinDisplayProp
     }
   }
 
+  // 服务端渲染时显示默认状态
+  if (!isClient) {
+    return (
+      <div className="flex items-center">
+        <div className="flex items-center bg-amber-50 text-amber-800 rounded-full px-3 py-1 text-sm">
+          <Coins className="h-4 w-4 mr-1.5 text-amber-500" />
+          <span>{coinBalance}</span>
+        </div>
+        <Button variant="ghost" size="icon" className="ml-1 h-7 w-7">
+          <Plus className="h-4 w-4" />
+        </Button>
+      </div>
+    )
+  }
+
   return (
     <div className="flex items-center">
-      <div className="flex items-center bg-amber-50 text-amber-800 rounded-full px-3 py-1 text-sm">
-        <Coins className="h-4 w-4 mr-1.5 text-amber-500" />
-        <span>{coinBalance}</span>
-      </div>
+      {hasMonthlyPackage ? (
+        // 月度套餐显示
+        <div className="flex items-center bg-gradient-to-r from-purple-50 to-blue-50 text-purple-800 rounded-full px-3 py-1 text-sm border border-purple-200">
+          <Crown className="h-4 w-4 mr-1.5 text-purple-600" />
+          <span>月度会员</span>
+        </div>
+      ) : (
+        // 普通硬币显示
+        <div className="flex items-center bg-amber-50 text-amber-800 rounded-full px-3 py-1 text-sm">
+          <Coins className="h-4 w-4 mr-1.5 text-amber-500" />
+          <span>{coinBalance}</span>
+        </div>
+      )}
 
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <DialogTrigger asChild>
@@ -105,7 +139,7 @@ export default function CoinDisplay({ coinBalance, onPurchase }: CoinDisplayProp
                 ))}
               </div>
             </div>
-            <p className="text-xs text-center text-muted-foreground mt-4">每月自动获得1枚免费硬币</p>
+            <p className="text-xs text-center text-muted-foreground mt-4">每月自动获得3枚免费硬币</p>
           </div>
         </DialogContent>
       </Dialog>
