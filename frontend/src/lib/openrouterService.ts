@@ -126,7 +126,7 @@ export async function generateSuggestions(nodeContent: string): Promise<string[]
 export async function sendStreamingChatRequest(
   messages: Message[],
   onChunk: (chunk: string) => void,
-  model: string = 'google/gemini-2.0-flash-lite-001',
+  model: string = 'google/gemini-2.5-flash',
   temperature: number = 0.7
 ): Promise<string> {
   try {

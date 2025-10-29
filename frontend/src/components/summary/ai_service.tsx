@@ -197,7 +197,7 @@ export async function sendChatRequest(
 export async function sendStreamingChatRequest(
   messages: Message[],
   onChunk: (chunk: string) => void,
-  model = "google/gemini-2.0-flash-lite-001",
+  model = "google/gemini-2.5-flash",
   temperature = 0.7,
 ): Promise<string> {
   try {
@@ -327,7 +327,7 @@ export async function streamingConvertChatToReport(
 
     const messages: Message[] = [{ role: "user", content: prompt }]
 
-    return await sendStreamingChatRequest(messages, onChunk, "google/gemini-2.0-flash-lite-001", 0.7)
+    return await sendStreamingChatRequest(messages, onChunk, "google/gemini-2.5-flash", 0.7)
   } catch (error) {
     console.error("流式转换聊天记录错误:", error)
     throw new Error("无法生成日报摘要，请稍后再试")
